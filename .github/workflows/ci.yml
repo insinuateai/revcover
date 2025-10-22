@@ -6,29 +6,33 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Install Node (v20)
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-          run_install: false
+      # Install pnpm manually *before* using it
+      - name: Install pnpm
+        run: npm install -g pnpm@9
 
+      - name: Verify pnpm
+        run: pnpm --version
+
+      # Install dependencies for the whole workspace
       - name: Install deps (workspace)
         run: pnpm install --frozen-lockfile=false
 
-      # Type-check API (uses its local devDependency 'typescript')
+      # Type-check API
       - name: Type-check API
         run: pnpm -F @revcover/api exec tsc --noEmit
 
-      # Build UI to catch compile errors
+      # Build UI
       - name: Build UI
         run: pnpm -F @revcover/ui build
