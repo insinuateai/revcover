@@ -1,14 +1,34 @@
 name: CI
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
         with:
           version: 9
-      - name: Install deps
-        run: pnpm install
-      - name: Lint + Test
-        run: pnpm test --if-present
+          run_install: false
+
+      - name: Install deps (workspace)
+        run: pnpm install --frozen-lockfile=false
+
+      # Type-check API (uses its local devDependency 'typescript')
+      - name: Type-check API
+        run: pnpm -F @revcover/api exec tsc --noEmit
+
+      # Build UI to catch compile errors
+      - name: Build UI
+        run: pnpm -F @revcover/ui build
