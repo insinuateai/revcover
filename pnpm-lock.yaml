@@ -6,11 +6,16 @@ settings:
 
 importers:
 
+  .: {}
+
   api:
     dependencies:
       '@fastify/cors':
         specifier: ^8.5.0
         version: 8.5.0
+      '@supabase/supabase-js':
+        specifier: ^2.45.1
+        version: 2.76.1
       fastify:
         specifier: ^4.28.1
         version: 4.29.1
