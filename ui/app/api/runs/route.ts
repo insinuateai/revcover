@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "../../../lib/supabaseAdmin";
-import { REVCOVER_API_URL, ORG_TOKEN } from "../../../lib/env";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { REVCOVER_API_URL, ORG_TOKEN } from "@/lib/env";
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,3 +47,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e.message || "Failed to create run" }, { status: 500 });
   }
 }
+
+export const runtime = "nodejs";
