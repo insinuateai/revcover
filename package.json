@@ -1,0 +1,8 @@
+{
+  "name": "revcover",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @revcover/api dev & pnpm --filter @revcover/ui dev",
+    "build": "pnpm --filter @revcover/ui build"
+  }
+}
