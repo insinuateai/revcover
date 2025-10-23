@@ -1,5 +1,5 @@
 // ui/lib/env.ts
-export const REVCOVER_API_URL =
+export const API_BASE_URL =
   process.env.NEXT_PUBLIC_HELIX_API_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
