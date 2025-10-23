@@ -2,6 +2,7 @@
 export const REVCOVER_API_URL =
   process.env.NEXT_PUBLIC_HELIX_API_URL ||
   process.env.HELIX_API_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ||
   "https://api.revcover.ai";
 
 export const ORG_TOKEN =
