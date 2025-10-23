@@ -1,0 +1,17 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+
+export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const { id } = params;
+    const { data, error } = await supabaseAdmin
+      .from("agent_runs")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error) throw error;
+    return NextResponse.json(data, { status: 200 });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || "Run not found" }, { status: 404 });
+  }
+}
