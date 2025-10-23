@@ -3,48 +3,44 @@ import { useState } from "react";
 
 export default function Demo() {
   const [runId, setRunId] = useState("");
-  const [status, setStatus] = useState("");
   const [receiptId, setReceiptId] = useState("");
+  const [status, setStatus] = useState("");
 
   async function startRun() {
     setStatus("starting...");
-    const res = await fetch("/api/runs", {
+    const res = await fetch("http://127.0.0.1:4001/api/runs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        org_id: "demo-org",
-        customer_id: "cust_123",
-        invoice_id: "inv_123",
-        input: { prompt: "Recover failed payment for cust_123" }
-      }),
+      body: JSON.stringify({ org_id: "demo", customer_id: "c1" })
     });
     const json = await res.json();
-    setRunId(json.run_id || "");
-    setStatus(`run ${json.status || "error"}`);
+    setRunId(json.run_id);
+    setStatus(json.status);
+  }
+  async function makeReceipt() {
+    if (!runId) return;
+    setStatus("creating receipt...");
+    const res = await fetch("http://127.0.0.1:4001/api/receipts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run_id: runId })
+    });
+    const json = await res.json();
+    setReceiptId(json.receipt_id);
+    setStatus(json.status);
   }
 
-  async function makeReceipt() {
-    setStatus("creating receipt...");
-    const res = await fetch("/api/receipts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ run_id: runId, amount_cents: 2500, currency: "USD" }),
-    });
-    const json = await res.json();
-    setReceiptId(json.receipt_id || "");
-    setStatus(json.receipt_id ? "receipt created" : "receipt error");
-  }
 
   return (
-    <main style={{ padding: 24 }}>
-      <h1>Revcover Demo: Runs → Receipts</h1>
-      <button onClick={startRun} style={{ padding: 10, marginRight: 10 }}>Start Run</button>
-      <button onClick={makeReceipt} disabled={!runId} style={{ padding: 10 }}>Create Receipt</button>
-      <div style={{ marginTop: 16 }}>
-        <div>Run ID: {runId || "—"}</div>
-        <div>Receipt ID: {receiptId || "—"}</div>
-        <div>Status: {status || "—"}</div>
+    <main>
+      <h1>Revcover Demo</h1>
+      <div style={{ display: "flex", gap: 12, margin: "12px 0" }}>
+        <button onClick={startRun}>Start Run</button>
+        <button onClick={makeReceipt} disabled={!runId}>Create Receipt</button>
       </div>
+      <div>Run ID: {runId || "—"}</div>
+      <div>Receipt ID: {receiptId || "—"}</div>
+      <div>Status: {status || "—"}</div>
     </main>
   );
 }
