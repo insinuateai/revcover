@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 
 const app = Fastify();
+await app.register(cors);
 
 // CORS
 await app.register(cors);
