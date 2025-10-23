@@ -1,9 +1,12 @@
-export const runtime = 'nodejs'
+// ui/app/api/runs/[id]/route.ts
+import { NextResponse } from "next/server";
 
-// Keep types minimal to avoid Next 15 signature complaints on Vercel.
-// Next will provide { params } at runtime; we avoid compile-time coupling here.
-export async function GET(_req: Request, ctx: any) {
-  const id = ctx?.params?.id ?? ''
-  return Response.json({ ok: true, id })
+// Optional: avoid static optimization surprises
+export const dynamic = "force-dynamic";
+
+// Next.js 15 App Router: (req: Request, ctx: { params: {...} })
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  // Minimal, dependency-free payload to guarantee compile success
+  return NextResponse.json({ ok: true, id });
 }
-export {}
