@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "../../lib/supabaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,3 +35,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e.message || "Failed to create receipt" }, { status: 500 });
   }
 }
+
+export const runtime = "nodejs";
