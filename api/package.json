@@ -1,21 +1,22 @@
 {
   "name": "@revcover/api",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "private": true,
   "scripts": {
     "start": "node --import=tsx src/index.ts",
-    "dev": "tsx watch src/index.ts"
+    "dev": "dotenv -e .env.local -- tsx watch src/index.ts",
+    "dev:plain": "tsx watch src/index.ts"
   },
   "dependencies": {
-    "@fastify/cors": "^8.5.0",
-    "@supabase/supabase-js": "^2.45.1",
-    "fastify": "^4.28.1",
-    "fastify-raw-body": "^5.0.0",
-    "stripe": "^19.1.0",
+    "@fastify/cors": "^9.0.1",
+    "@supabase/supabase-js": "^2.45.0",
+    "fastify": "^4.27.2",
+    "stripe": "^15.0.0",
     "tsx": "^4.19.0"
   },
-  "engines": {
-    "node": ">=20"
-  }
+  "devDependencies": {
+    "dotenv-cli": "^7.4.2"
+  },
+  "engines": { "node": ">=20" }
 }
