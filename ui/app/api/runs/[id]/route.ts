@@ -1,13 +1,9 @@
-import type { NextRequest } from 'next/server'
-
 export const runtime = 'nodejs'
 
-// Next 15 signature: (request: NextRequest, context: { params: { id: string } })
-export async function GET(_req: NextRequest, context: { params: { id: string } }) {
-  const { id } = context.params
-  // TODO: replace with real lookup logic if needed
+// Keep types minimal to avoid Next 15 signature complaints on Vercel.
+// Next will provide { params } at runtime; we avoid compile-time coupling here.
+export async function GET(_req: Request, ctx: any) {
+  const id = ctx?.params?.id ?? ''
   return Response.json({ ok: true, id })
 }
-
-// Keep module alive as ESM module even if tree-shaken
 export {}
