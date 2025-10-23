@@ -1,13 +1,12 @@
-import type { NextRequest } from 'next/server'
+// ui/app/api/runs/[id]/route.ts
+import { NextResponse } from "next/server";
 
-export const runtime = 'nodejs'
+// Optional: avoid static optimization surprises
+export const dynamic = "force-dynamic";
 
-// Next 15 signature: (request: NextRequest, context: { params: { id: string } })
-export async function GET(_req: NextRequest, context: { params: { id: string } }) {
-  const { id } = context.params
-  // TODO: replace with real lookup logic if needed
-  return Response.json({ ok: true, id })
+// Next.js 15 App Router: (req: Request, ctx: { params: {...} })
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  // Minimal, dependency-free payload to guarantee compile success
+  return NextResponse.json({ ok: true, id });
 }
-
-// Keep module alive as ESM module even if tree-shaken
-export {}
