@@ -28,12 +28,9 @@ app.post("/api/runs", async (req, reply) => {
   return reply.send({ run_id, status: "started" });
 });
 
-app.post("/api/receipts", async (req, reply) => {
-  const body = req.body as any;
-  const receipt_id = crypto.randomUUID();
-  console.log("Receipt created", body);
-  return reply.send({ receipt_id, status: "created" });
-});
+// Read envs with safe defaults
+const PORT = Number(process.env.PORT ?? 4001);
+const HOST = process.env.HOST ?? "127.0.0.1";
 
 // Mount the Stripe webhook plugin
 await app.register(stripeWebhook);
