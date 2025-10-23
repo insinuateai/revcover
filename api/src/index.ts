@@ -1,26 +1,26 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import crypto from "node:crypto";
 
 const app = Fastify();
 await app.register(cors);
 
+// CORS
+await app.register(cors);
+
+// Health
 app.get("/health", async () => ({ ok: true }));
 
-app.post("/api/runs", async (req, reply) => {
-  const body = req.body as any;
-  const run_id = crypto.randomUUID();
-  console.log("Run started", body);
-  return reply.send({ run_id, status: "started" });
-});
+// Read envs with safe defaults
+const PORT = Number(process.env.PORT ?? 4001);
+const HOST = process.env.HOST ?? "127.0.0.1";
 
-app.post("/api/receipts", async (req, reply) => {
-  const body = req.body as any;
-  const receipt_id = crypto.randomUUID();
-  console.log("Receipt created", body);
-  return reply.send({ receipt_id, status: "created" });
-});
-
-app.listen({ port: Number(process.env.PORT ?? 3001), host: "0.0.0.0" }, () =>
-  console.log("\u2705 API live on port", process.env.PORT ?? 3001)
-);
+// Start and log the real address
+app
+  .listen({ port: PORT, host: HOST })
+  .then((address) => {
+    console.log(`✅ API listening on ${address}`);
+  })
+  .catch((err) => {
+    console.error("❌ API failed to start:", err);
+    process.exit(1);
+  });
