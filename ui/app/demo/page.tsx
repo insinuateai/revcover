@@ -8,7 +8,7 @@ export default function Demo() {
 
   async function startRun() {
     setStatus("starting...");
-    const res = await fetch("http://127.0.0.1:4001/api/runs", {
+    const res = await fetch("/api/runs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ org_id: "demo", customer_id: "c1" })
@@ -20,7 +20,7 @@ export default function Demo() {
   async function makeReceipt() {
     if (!runId) return;
     setStatus("creating receipt...");
-    const res = await fetch("http://127.0.0.1:4001/api/receipts", {
+    const res = await fetch("/api/receipts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ run_id: runId })
