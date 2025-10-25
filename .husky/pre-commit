@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -e
+if rg -n --hidden --no-ignore -e 'sk_(test|live)_' -e 'whsec_' -g '!.git' | grep -v '.example'; then
+  echo "❌ Secret-like token detected (not in *.example). Commit aborted."
+  exit 1
+fi

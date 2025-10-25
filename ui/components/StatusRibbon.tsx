@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { apiUrl } from "@/lib/api";
 
 type SummaryResponse = {
   runs: number;
@@ -46,8 +47,8 @@ export default function StatusRibbon() {
     async function load() {
       try {
         const [summaryRes, healthRes] = await Promise.all([
-          fetch("/api/summary", { cache: "no-store" }),
-          fetch("/api/health", { cache: "no-store" }),
+          fetch(apiUrl("/api/summary"), { cache: "no-store" }),
+          fetch(apiUrl("/api/health"), { cache: "no-store" }),
         ]);
 
         if (!summaryRes.ok) throw new Error(`summary_failed_${summaryRes.status}`);

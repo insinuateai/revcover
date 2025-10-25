@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { apiUrl } from "@/lib/api";
 
 const steps = ["Stripe Connect", "Playbooks", "Start"] as const;
 
@@ -38,7 +39,7 @@ export default function ProofOfValueWizard() {
     try {
       setStatus("loading");
       setMessage(null);
-      const res = await fetch("/api/assurance-pack");
+      const res = await fetch(apiUrl("/api/assurance-pack"));
       if (!res.ok) throw new Error("Download failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

@@ -1,22 +1,16 @@
-// ui/app/health/page.tsx
-import { headers } from "next/headers";
-
 export const dynamic = "force-dynamic";
 export const fetchCache = "default-no-store";
 
-export default async function HealthPage() {
-  const h = await headers();
-  const proto = h.get("x-forwarded-proto") ?? "http";
-  const host = h.get("host") ?? "127.0.0.1:3000";
-  const base = `${proto}://${host}`;
+import { apiUrl } from "@/lib/api";
 
+export default async function HealthPage() {
   let summary = { runs: 0, receipts: 0 };
   let api = { ok: false, error: "unreachable" };
 
   try {
     const [summaryRes, apiRes] = await Promise.all([
-      fetch(new URL("/api/summary", base), { cache: "no-store" }),
-      fetch(new URL("/api/health", base), { cache: "no-store" }),
+      fetch(apiUrl("/api/summary"), { cache: "no-store" }),
+      fetch(apiUrl("/api/health"), { cache: "no-store" }),
     ]);
 
     if (summaryRes.ok) summary = await summaryRes.json();

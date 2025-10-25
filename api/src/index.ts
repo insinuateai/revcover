@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import rawBody from "fastify-raw-body";
+import logging from "./plugins/logging.js";
 import stripeWebhook from "./webhooks/stripe.js";
 import summaryRoute from "./routes/summary.js";
 import pulseRoute from "./routes/pulse.js";
@@ -8,6 +9,7 @@ import receiptsRoute from "./routes/receipts.js";
 import assurancePackRoute from "./routes/assurancePack.js";
 import ledgerRoute from "./routes/ledger.js";
 import recoveryReportRoute from "./routes/recoveryReport.js";
+import healthRoute from "./routes/health.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 
@@ -19,9 +21,8 @@ async function main() {
     credentials: true,
   });
 
+  await app.register(logging);
   await app.register(rawBody, { field: "rawBody", runFirst: true, routes: ["/api/webhooks/stripe"] });
-
-  app.get("/health", async () => ({ ok: true }));
 
   await app.register(stripeWebhook);
   await app.register(summaryRoute);
@@ -30,6 +31,7 @@ async function main() {
   await app.register(assurancePackRoute);
   await app.register(ledgerRoute);
   await app.register(recoveryReportRoute);
+  await app.register(healthRoute);
 
   try {
     await app.listen({ port: PORT, host: "0.0.0.0" });

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { apiUrl } from "@/lib/api";
 
 export default function Demo() {
   const [runId, setRunId] = useState("");
@@ -8,7 +9,7 @@ export default function Demo() {
 
   async function startRun() {
     setStatus("starting...");
-    const res = await fetch("/api/runs", {
+    const res = await fetch(apiUrl("/api/runs"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ org_id: "demo", customer_id: "c1" })
@@ -20,7 +21,7 @@ export default function Demo() {
   async function makeReceipt() {
     if (!runId) return;
     setStatus("creating receipt...");
-    const res = await fetch("/api/receipts", {
+    const res = await fetch(apiUrl("/api/receipts"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ run_id: runId })
