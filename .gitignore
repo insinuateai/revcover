@@ -9,3 +9,5 @@ dist
 !.env.example
 !.env.*.example
 api/.env.local
+api/.env.local
+api/.env.local
