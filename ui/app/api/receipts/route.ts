@@ -37,3 +37,20 @@ export async function POST(req: NextRequest) {
 }
 
 export const runtime = "nodejs";
+
+
+export async function GET(req: NextRequest) {
+  const base = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3001";
+  const target = new URL("/receipts", base);
+  req.nextUrl.searchParams.forEach((value, key) => {
+    target.searchParams.append(key, value);
+  });
+
+  try {
+    const res = await fetch(target, { cache: "no-store" });
+    const data = await res.json();
+    return NextResponse.json(data, { status: res.status });
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: "receipts_unreachable" }, { status: 502 });
+  }
+}

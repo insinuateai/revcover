@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "API: dev (node+tsx, no pnpm)",
+      "type": "shell",
+      "options": { "cwd": "${workspaceFolder}/api" },
+      "command": "set -a; source ./.env.local; set +a; node --import=tsx ./node_modules/tsx/dist/cli.mjs watch ./src/index.ts",
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,3 +1,7 @@
 packages:
-  - "api"
-  - "ui"
+  - api
+  - ui
+
+ignoredBuiltDependencies:
+  - esbuild
+  - sharp

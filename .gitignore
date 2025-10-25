@@ -11,3 +11,9 @@ dist
 api/.env.local
 api/.env.local
 api/.env.local
+*.env
+*.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.local.example
