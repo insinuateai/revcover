@@ -9,7 +9,7 @@ export default function Demo() {
 
   async function startRun() {
     setStatus("starting...");
-    const res = await fetch(apiUrl("/api/runs"), {
+    const res = await fetch(apiUrl("/runs"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ org_id: "demo", customer_id: "c1" })
@@ -21,7 +21,7 @@ export default function Demo() {
   async function makeReceipt() {
     if (!runId) return;
     setStatus("creating receipt...");
-    const res = await fetch(apiUrl("/api/receipts"), {
+    const res = await fetch(apiUrl("/receipts"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ run_id: runId })

@@ -9,8 +9,8 @@ export default async function HealthPage() {
 
   try {
     const [summaryRes, apiRes] = await Promise.all([
-      fetch(apiUrl("/api/summary"), { cache: "no-store" }),
-      fetch(apiUrl("/api/health"), { cache: "no-store" }),
+      fetch(apiUrl("/summary"), { cache: "no-store" }),
+      fetch(apiUrl("/health"), { cache: "no-store" }),
     ]);
 
     if (summaryRes.ok) summary = await summaryRes.json();

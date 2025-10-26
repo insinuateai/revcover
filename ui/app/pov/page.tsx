@@ -39,7 +39,7 @@ export default function ProofOfValueWizard() {
     try {
       setStatus("loading");
       setMessage(null);
-      const res = await fetch(apiUrl("/api/assurance-pack"));
+      const res = await fetch(apiUrl("/assurance-pack"));
       if (!res.ok) throw new Error("Download failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

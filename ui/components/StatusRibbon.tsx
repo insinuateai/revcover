@@ -47,8 +47,8 @@ export default function StatusRibbon() {
     async function load() {
       try {
         const [summaryRes, healthRes] = await Promise.all([
-          fetch(apiUrl("/api/summary"), { cache: "no-store" }),
-          fetch(apiUrl("/api/health"), { cache: "no-store" }),
+          fetch(apiUrl("/summary"), { cache: "no-store" }),
+          fetch(apiUrl("/health"), { cache: "no-store" }),
         ]);
 
         if (!summaryRes.ok) throw new Error(`summary_failed_${summaryRes.status}`);

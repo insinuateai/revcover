@@ -22,7 +22,7 @@ export default function Dashboard() {
   const fetchSummary = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(apiUrl("/api/summary"), { cache: "no-store" });
+      const res = await fetch(apiUrl("/summary"), { cache: "no-store" });
       if (!res.ok) throw new Error(`Failed with status ${res.status}`);
       const json = (await res.json()) as SummaryResponse;
       setSummary(json);
@@ -54,7 +54,7 @@ export default function Dashboard() {
   const triggerPulse = async () => {
     setPulseLoading(true);
     try {
-      const res = await fetch(apiUrl("/api/pulse"), { method: "POST", cache: "no-store" });
+      const res = await fetch(apiUrl("/pulse"), { method: "POST", cache: "no-store" });
       const data = await res.json();
       if (!res.ok || !data?.recovered_usd) {
         throw new Error(data?.error ?? "pulse_failed");
