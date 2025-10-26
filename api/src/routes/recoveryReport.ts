@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
 import PDFDocument from "pdfkit";
-
 type PdfDoc = InstanceType<typeof PDFDocument>;
 
 export default async function recoveryReport(app: FastifyInstance) {
