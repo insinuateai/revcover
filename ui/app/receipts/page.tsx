@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { apiUrl } from "@/lib/api";
 
 const PAGE_SIZE = 50;
 
@@ -61,7 +62,7 @@ export default function ReceiptsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/receipts?${query}`, { cache: "no-store" });
+      const res = await fetch(apiUrl(`/receipts?${query}`), { cache: "no-store" });
       const json = (await res.json()) as ReceiptsResponse;
       if (!res.ok || !json?.ok) throw new Error(json?.error ?? "load_failed");
       setData(json);
@@ -93,7 +94,7 @@ export default function ReceiptsPage() {
 
   const exportCsv = async () => {
     try {
-      const res = await fetch(`/api/receipts/export?${query}`, { cache: "no-store" });
+      const res = await fetch(apiUrl(`/receipts/export?${query}`), { cache: "no-store" });
       if (!res.ok) throw new Error("export_failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
