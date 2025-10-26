@@ -2,13 +2,13 @@
   "name": "revcover",
   "private": true,
   "scripts": {
-    "dev": "concurrently -k -n API,UI -c green,cyan \"pnpm --filter api dev\" \"pnpm --filter ui dev\"",
+    "dev": "concurrently -k -n API,UI -c green,cyan \"pnpm --filter api run dev\" \"pnpm --filter ui run dev\"",
     "build": "pnpm --filter @revcover/ui build",
     "preflight": "tsx scripts/preflight.ts",
-    "guardrail": "pnpm -w typecheck && pnpm -w lint && pnpm -w test && pnpm -w preflight",
-    "typecheck": "pnpm -r --parallel typecheck",
-    "lint": "pnpm -r --parallel lint",
-    "test": "pnpm -r --parallel test",
-    "dev:reset": "npx kill-port 3000 3001 && pnpm dev"
+    "guardrail": "pnpm -w run typecheck && pnpm -w run lint && pnpm -w run test && pnpm -w run preflight",
+    "typecheck": "pnpm -r --parallel run typecheck",
+    "lint": "pnpm -r --parallel run lint",
+    "test": "pnpm -r --parallel run test",
+    "dev:reset": "npx kill-port 3000 3001 && pnpm run dev"
   }
 }

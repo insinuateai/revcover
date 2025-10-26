@@ -52,7 +52,7 @@ export default async function stripeWebhook(app: FastifyInstance) {
     return data?.id as string;
   }
 
-  app.post("/api/webhooks/stripe", async (req, reply) => {
+  app.post("/api/webhooks/stripe", { config: { rawBody: true } }, async (req, reply) => {
     try {
       if (!stripe || !webhookSecretValid || !STRIPE_WEBHOOK_SECRET) {
         return reply.code(400).send({ ok: false, error: "stripe_not_configured" });

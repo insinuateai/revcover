@@ -1,6 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import rawBody from "fastify-raw-body";
+import fastifyRawBody from "fastify-raw-body";
 import logging from "./plugins/logging.js";
 import stripeWebhook from "./webhooks/stripe.js";
 import summaryRoute from "./routes/summary.js";
@@ -22,7 +22,11 @@ async function main() {
   });
 
   await app.register(logging);
-  await app.register(rawBody, { field: "rawBody", runFirst: true, routes: ["/api/webhooks/stripe"] });
+  await app.register(fastifyRawBody, {
+    field: "rawBody",
+    global: false,
+    encoding: "utf8",
+  });
 
   await app.register(stripeWebhook);
   await app.register(summaryRoute);

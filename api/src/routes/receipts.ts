@@ -60,8 +60,6 @@ type ReceiptDTO = {
 
 type ReceiptsFilters = QueryParams & { orgId: string };
 
-type SupabaseQuery = ReturnType<SupabaseClient["from"]>;
-
 type ReceiptsRepo = {
   list(filters: ReceiptsFilters): Promise<{ rows: ReceiptRow[]; count: number }>;
   export(filters: ReceiptsFilters): Promise<ReceiptRow[]>;
@@ -85,7 +83,7 @@ function centsToDollars(value?: number | null) {
   return Number(((value ?? 0) / 100).toFixed(2));
 }
 
-function applyFilters(query: SupabaseQuery, filters: ReceiptsFilters) {
+function applyFilters(query: any, filters: ReceiptsFilters) {
   let next = query.eq("org_id", filters.orgId);
 
   if (filters.status === "recovered") next = next.eq("recovered", true);
@@ -167,7 +165,7 @@ function toCsv(rows: ReceiptRow[]) {
       dto.attribution_hash ?? "",
       dto.created_at,
     ]
-      .map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`)
+      .map((value: string) => `"${String(value ?? "").replace(/"/g, '""')}"`)
       .join(",");
   });
   return [header.join(","), ...lines].join("\n");
