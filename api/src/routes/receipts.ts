@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { supabaseAdmin } from "../../lib/supabaseAdmin.js";
+import { supabaseAdmin } from "../lib/supabaseAdmin.js";
 
 type AnyBuilder = any;
 
@@ -85,18 +85,6 @@ function centsToDollars(value?: number | null) {
   return Number(((value ?? 0) / 100).toFixed(2));
 }
 
-function applyFilters(query: AnyBuilder, filters: ReceiptsFilters) {
-  let next: AnyBuilder = (query as AnyBuilder).eq("org_id", filters.orgId);
-
-  if (filters.status === "recovered") next = (next as AnyBuilder).eq("recovered", true);
-  if (filters.status === "pending") next = (next as AnyBuilder).eq("recovered", false);
-  if (filters.from) next = (next as AnyBuilder).gte("created_at", filters.from);
-  if (filters.to) next = (next as AnyBuilder).lte("created_at", filters.to);
-  if (filters.search) next = (next as AnyBuilder).ilike("invoice_id", `%${filters.search}%`);
-
-  return next;
-}
-
 function orderColumn(sort: QueryParams["sort"]) {
   return sort === "recovered_usd" ? "amount_cents" : "created_at";
 }
@@ -106,19 +94,30 @@ function createReceiptsRepo(client: SupabaseClient): ReceiptsRepo {
     async list(filters) {
       const start = (filters.page - 1) * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
-      let query: AnyBuilder = client.from("receipts").select("*", { count: "exact" });
-      query = applyFilters(query, filters);
-      query = (query as AnyBuilder).order(orderColumn(filters.sort), { ascending: filters.direction === "asc" });
-      const { data, error, count } = await query.range(start, end);
+      let qb: AnyBuilder = client.from("receipts").select("*", { count: "exact" });
+      qb = (qb as AnyBuilder).eq("org_id", filters.orgId);
+      if (filters.status === "recovered") qb = (qb as AnyBuilder).eq("recovered", true);
+      if (filters.status === "pending") qb = (qb as AnyBuilder).eq("recovered", false);
+      if (filters.from) qb = (qb as AnyBuilder).gte("created_at", filters.from);
+      if (filters.to) qb = (qb as AnyBuilder).lte("created_at", filters.to);
+      if (filters.search) qb = (qb as AnyBuilder).ilike("invoice_id", `%${filters.search}%`);
+      qb = (qb as AnyBuilder).order(orderColumn(filters.sort), { ascending: filters.direction === "asc" });
+      qb = (qb as AnyBuilder).range(start, end);
+      const { data, error, count } = await qb;
       if (error || !Array.isArray(data)) throw error ?? new Error("receipts_query_failed");
       return { rows: data as ReceiptRow[], count: count ?? 0 };
     },
 
     async export(filters) {
-      let query: AnyBuilder = client.from("receipts").select("*");
-      query = applyFilters(query, filters);
-      query = (query as AnyBuilder).order(orderColumn(filters.sort), { ascending: filters.direction === "asc" });
-      const { data, error } = await query;
+      let qb: AnyBuilder = client.from("receipts").select("*");
+      qb = (qb as AnyBuilder).eq("org_id", filters.orgId);
+      if (filters.status === "recovered") qb = (qb as AnyBuilder).eq("recovered", true);
+      if (filters.status === "pending") qb = (qb as AnyBuilder).eq("recovered", false);
+      if (filters.from) qb = (qb as AnyBuilder).gte("created_at", filters.from);
+      if (filters.to) qb = (qb as AnyBuilder).lte("created_at", filters.to);
+      if (filters.search) qb = (qb as AnyBuilder).ilike("invoice_id", `%${filters.search}%`);
+      qb = (qb as AnyBuilder).order(orderColumn(filters.sort), { ascending: filters.direction === "asc" });
+      const { data, error } = await qb;
       if (error || !Array.isArray(data)) throw error ?? new Error("receipts_export_failed");
       return data as ReceiptRow[];
     },
