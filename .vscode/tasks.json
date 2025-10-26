@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Brain: Inject (API)",
+      "type": "shell",
+      "command": "cat brain/guardrails.md brain/api_patterns.md brain/contracts/${input:contract} | pbcopy && echo 'Copied API context to clipboard'",
+      "problemMatcher": []
+    },
+    {
+      "label": "Brain: Inject (UI)",
+      "type": "shell",
+      "command": "cat brain/guardrails.md brain/ui_patterns.md brain/contracts/${input:contract} | pbcopy && echo 'Copied UI context to clipboard'",
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "contract",
+      "type": "pickString",
+      "description": "Pick a contract",
+      "options": ["kpi.md", "incidents.md", "insights.md"]
+    }
+  ]
+}
