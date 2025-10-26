@@ -3,6 +3,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { supabaseAdmin } from "../../lib/supabaseAdmin.js";
 
+type AnyBuilder = any;
+
 const PAGE_SIZE = 50;
 
 const querySchema = z.object({
@@ -83,14 +85,14 @@ function centsToDollars(value?: number | null) {
   return Number(((value ?? 0) / 100).toFixed(2));
 }
 
-function applyFilters(query: any, filters: ReceiptsFilters) {
-  let next = query.eq("org_id", filters.orgId);
+function applyFilters(query: AnyBuilder, filters: ReceiptsFilters) {
+  let next: AnyBuilder = (query as AnyBuilder).eq("org_id", filters.orgId);
 
-  if (filters.status === "recovered") next = next.eq("recovered", true);
-  if (filters.status === "pending") next = next.eq("recovered", false);
-  if (filters.from) next = next.gte("created_at", filters.from);
-  if (filters.to) next = next.lte("created_at", filters.to);
-  if (filters.search) next = next.ilike("invoice_id", `%${filters.search}%`);
+  if (filters.status === "recovered") next = (next as AnyBuilder).eq("recovered", true);
+  if (filters.status === "pending") next = (next as AnyBuilder).eq("recovered", false);
+  if (filters.from) next = (next as AnyBuilder).gte("created_at", filters.from);
+  if (filters.to) next = (next as AnyBuilder).lte("created_at", filters.to);
+  if (filters.search) next = (next as AnyBuilder).ilike("invoice_id", `%${filters.search}%`);
 
   return next;
 }
@@ -104,18 +106,18 @@ function createReceiptsRepo(client: SupabaseClient): ReceiptsRepo {
     async list(filters) {
       const start = (filters.page - 1) * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
-      let query = client.from("receipts").select("*", { count: "exact" });
+      let query: AnyBuilder = client.from("receipts").select("*", { count: "exact" });
       query = applyFilters(query, filters);
-      query = query.order(orderColumn(filters.sort), { ascending: filters.direction === "asc" });
+      query = (query as AnyBuilder).order(orderColumn(filters.sort), { ascending: filters.direction === "asc" });
       const { data, error, count } = await query.range(start, end);
       if (error || !Array.isArray(data)) throw error ?? new Error("receipts_query_failed");
       return { rows: data as ReceiptRow[], count: count ?? 0 };
     },
 
     async export(filters) {
-      let query = client.from("receipts").select("*");
+      let query: AnyBuilder = client.from("receipts").select("*");
       query = applyFilters(query, filters);
-      query = query.order(orderColumn(filters.sort), { ascending: filters.direction === "asc" });
+      query = (query as AnyBuilder).order(orderColumn(filters.sort), { ascending: filters.direction === "asc" });
       const { data, error } = await query;
       if (error || !Array.isArray(data)) throw error ?? new Error("receipts_export_failed");
       return data as ReceiptRow[];
