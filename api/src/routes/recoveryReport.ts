@@ -21,3 +21,11 @@ export default async function recoveryReport(app: FastifyInstance) {
     return reply;
   });
 }
+
+// --- compat shim for legacy tests ---
+export function buildRecoveryReportRoute(_opts?: unknown) {
+  return async (app: import("fastify").FastifyInstance) => {
+    const route = (exports.default || (await import("./recoveryReport.js")).default);
+    await route(app);
+  };
+}

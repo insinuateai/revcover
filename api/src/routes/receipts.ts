@@ -37,3 +37,12 @@ export default async function receipts(app: FastifyInstance) {
     reply.send({ items: data ?? [], total: count ?? 0, limit, offset });
   });
 }
+
+// --- compat shim for legacy tests ---
+export function buildReceiptsRoute(_opts?: unknown) {
+  return async (app: import("fastify").FastifyInstance) => {
+    // if your default export is a function named `receipts`, call it directly
+    const route = (exports.default || (await import("./receipts.js")).default);
+    await route(app);
+  };
+}
