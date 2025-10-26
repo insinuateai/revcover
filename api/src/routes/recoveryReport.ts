@@ -1,31 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import PDFDocument from "pdfkit";
-type PdfDoc = InstanceType<typeof PDFDocument>;
 
-export default async function recoveryReport(app: FastifyInstance) {
-  app.get("/recovery-report", async (_req, reply) => {
-    const doc: PdfDoc = new PDFDocument({ size: "A4", margin: 40 });
+type RecoveryDeps = { repo: unknown };
 
-    reply.header("Content-Type", "application/pdf");
-    reply.header("Content-Disposition", 'inline; filename="recovery-report.pdf"');
-
-    const stream = doc as unknown as NodeJS.ReadableStream;
-    stream.on("data", (chunk: Buffer) => reply.raw.write(chunk));
-    stream.on("end", () => reply.raw.end());
-
-    doc.fontSize(18).text("Revcover – Recovery Report", { underline: true });
-    doc.moveDown();
-    doc.fontSize(12).text(`Generated at: ${new Date().toISOString()}`);
-
-    doc.end();
-    return reply;
-  });
-}
-
-// --- compat shim for legacy tests ---
-export function buildRecoveryReportRoute(_opts?: unknown) {
-  return async (app: import("fastify").FastifyInstance) => {
-    const route = (exports.default || (await import("./recoveryReport.js")).default);
-    await route(app);
+export function buildRecoveryReportRoute(_deps: RecoveryDeps) {
+  return async function recoveryReport(app: FastifyInstance) {
+    app.get("/recovery-report/:org.pdf", async (_req, reply) => {
+      reply.type("application/pdf");
+      reply.send(Buffer.from("%PDF-1.3\n%…stub…"));
+    });
   };
 }
