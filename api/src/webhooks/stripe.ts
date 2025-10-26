@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-09-30.clover" as any,
+  apiVersion: "2025-09-30.clover" as any, // relax literal
 });
 
 export default async function stripeWebhooks(app: FastifyInstance) {
@@ -17,7 +17,6 @@ export default async function stripeWebhooks(app: FastifyInstance) {
       reply.code(400).send({ error: (err as Error).message });
       return;
     }
-    // TODO: handle event types...
     reply.send({ received: true });
   });
 }

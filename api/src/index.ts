@@ -13,7 +13,7 @@ import healthRoute from "./routes/health.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 
-async function main() {
+export default async function buildApp() {
   const app = Fastify({ logger: true });
 
   await app.register(cors, {
@@ -37,6 +37,12 @@ async function main() {
   await app.register(recoveryReportRoute);
   await app.register(healthRoute);
 
+  return app;
+}
+
+async function main() {
+  const app = await buildApp();
+
   try {
     await app.listen({ port: PORT, host: "0.0.0.0" });
     app.log.info(`API listening on :${PORT}`);
@@ -46,4 +52,7 @@ async function main() {
   }
 }
 
-main();
+if (process.env.NODE_ENV !== "test") {
+  // Avoid starting the server when imported for tests.
+  void main();
+}
