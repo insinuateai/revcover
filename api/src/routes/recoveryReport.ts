@@ -1,9 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 
 type Deps = {
-  repo: {
-    getRecoveryReport: (orgId: string) => Promise<Buffer>;
-  };
+  repo: { getRecoveryReport: (orgId: string) => Promise<Buffer> };
 };
 
 export const buildRecoveryReportRoute =
@@ -13,7 +11,7 @@ export const buildRecoveryReportRoute =
       "/recovery-report/:orgId.pdf",
       async (req, reply) => {
         const { orgId } = req.params;
-        const pdf = await repo.getRecoveryReport(orgId);
+        const pdf = await repo.getRecoveryReport(orgId); // must be Buffer
         reply.type("application/pdf").send(pdf);
       }
     );
