@@ -18,7 +18,7 @@ export default async function buildApp() {
 
   const repo = {
     export: async (_args: unknown) => "id,amount\n1,100\n",
-    getRecoveryReport: async (_org: string) => Buffer.from("%PDF-1.4 dummy\n", "utf8"),
+    getRecoveryReport: async (_org: string) => Buffer.from("%PDF-1.4\n"),
     listReceipts: async (_args: unknown) => [],
   };
 
