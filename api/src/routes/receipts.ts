@@ -2,7 +2,6 @@ import type { FastifyPluginAsync } from "fastify";
 
 type Deps = {
   repo: {
-    // The test spies expect these keys to be forwarded as-is.
     export: (args: {
       status?: string;
       search?: string;
@@ -15,7 +14,6 @@ type Deps = {
   };
 };
 
-// DI builder the tests look for
 export const buildReceiptsRoute =
   ({ repo }: Deps): FastifyPluginAsync =>
   async (app) => {
@@ -27,18 +25,10 @@ export const buildReceiptsRoute =
         to?: string;
         sort?: string;
         direction?: "asc" | "desc";
-        page?: string | number; // accept string from query, coerce below
+        page?: string | number;
       };
     }>("/receipts.csv", async (req, reply) => {
-      const {
-        status,
-        search,
-        from,
-        to,
-        sort,
-        direction,
-        page,
-      } = req.query ?? {};
+      const { status, search, from, to, sort, direction, page } = req.query ?? {};
 
       const args = {
         status,
@@ -59,5 +49,4 @@ export const buildReceiptsRoute =
     });
   };
 
-// Keep default export to not break any other imports
 export default buildReceiptsRoute;
