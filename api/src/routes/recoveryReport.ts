@@ -8,9 +8,11 @@ type Deps = {
 
 export const buildRecoveryReportRoute = ({ repo }: Deps): FastifyPluginAsync => {
   return async (app) => {
+    // tests call GET /recovery-report/demo-org.pdf
     app.get("/recovery-report/:orgId.pdf", async (req, reply) => {
       const { orgId } = (req as any).params;
       const pdf = await repo.getRecoveryReport(orgId);
+
       if (!pdf) return reply.code(404).send();
 
       reply.header("content-type", "application/pdf");
