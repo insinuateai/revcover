@@ -20,12 +20,12 @@ export const buildReceiptsRoute =
     app.get<{
       Querystring: {
         status?: string;
-        search?: string;
+        search?: string;        // <—— use “search”, not “q”
         from?: string;
         to?: string;
         sort?: string;
         direction?: "asc" | "desc";
-        page?: string | number;
+        page?: string | number; // <—— use “page”, not limit/offset
       };
     }>("/receipts.csv", async (req, reply) => {
       const { status, search, from, to, sort, direction, page } = req.query ?? {};
@@ -41,7 +41,6 @@ export const buildReceiptsRoute =
       };
 
       const csv = await repo.export(args);
-
       reply
         .type("text/csv")
         .header("content-disposition", 'attachment; filename="receipts.csv"')
