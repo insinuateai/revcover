@@ -5,16 +5,21 @@ import logging from "./plugins/logging.js";
 import stripeWebhook from "./webhooks/stripe.js";
 import summaryRoute from "./routes/summary.js";
 import pulseRoute from "./routes/pulse.js";
-import receiptsRoute from "./routes/receipts.js";
+import { buildReceiptsRoute } from "./routes/receipts.js";
 import assurancePackRoute from "./routes/assurancePack.js";
 import ledgerRoute from "./routes/ledger.js";
-import recoveryReportRoute from "./routes/recoveryReport.js";
+import { buildRecoveryReportRoute } from "./routes/recoveryReport.js";
 import healthRoute from "./routes/health.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 
 export default async function buildApp() {
   const app = Fastify({ logger: true });
+
+  const repo = {
+    listReceipts: async (_args: unknown) => [],
+    getRecoveryReport: async (_org: string) => ({}),
+  };
 
   await app.register(cors, {
     origin: (origin, cb) => cb(null, true),
@@ -31,10 +36,10 @@ export default async function buildApp() {
   await app.register(stripeWebhook);
   await app.register(summaryRoute);
   await app.register(pulseRoute);
-  await app.register(receiptsRoute);
+  await app.register(buildReceiptsRoute({ repo }));
   await app.register(assurancePackRoute);
   await app.register(ledgerRoute);
-  await app.register(recoveryReportRoute);
+  await app.register(buildRecoveryReportRoute({ repo }));
   await app.register(healthRoute);
 
   return app;
