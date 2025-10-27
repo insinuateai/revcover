@@ -1,6 +1,6 @@
 import fastify from "fastify";
-import { buildReceiptsRoute } from "./routes/receipts.js";
-import { buildRecoveryReportRoute } from "./routes/recoveryReport.js";
+import { buildReceiptsRoute } from "./routes/receipts";
+import { buildRecoveryReportRoute } from "./routes/recoveryReport";
 
 const repo = {
   // Dev stubs; tests will swap these with spies/mocks.
