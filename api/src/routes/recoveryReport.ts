@@ -1,17 +1,16 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
-/**
- * Factory: returns a Fastify plugin that registers the recovery report endpoints.
- */
+/** Factory for Recovery Report (PDF) */
 export function buildRecoveryReportRoute(deps: {
-  repo: { getRecoveryReport: (orgId: string) => Promise<unknown> };
+  repo: { getRecoveryReport: (orgId: string) => Promise<Buffer | Uint8Array | string | null> };
 }) {
-  const paramsSchema = z.object({ org: z.string().min(1) });
+  const params = z.object({ org: z.string().min(1) });
 
   return async function recoveryReport(app: FastifyInstance) {
-    app.get("/recovery/:org", async (req, reply) => {
-      const parsed = paramsSchema.safeParse((req as any).params);
+    // The test hits: /recovery-report/demo-org.pdf
+    app.get("/recovery-report/:org.pdf", async (req, reply) => {
+      const parsed = params.safeParse((req as any).params);
       if (!parsed.success) {
         reply
           .code(400)
@@ -20,8 +19,16 @@ export function buildRecoveryReportRoute(deps: {
       }
 
       try {
-        const data = await deps.repo.getRecoveryReport(parsed.data.org);
-        reply.send({ ok: true, data });
+        const pdf = await deps.repo.getRecoveryReport(parsed.data.org);
+        if (!pdf) {
+          reply.code(404).send({ ok: false, error: "NOT_FOUND" });
+          return;
+        }
+
+        reply
+          .type("application/pdf")
+          .header("Content-Disposition", 'inline; filename="recovery-report.pdf"')
+          .send(typeof pdf === "string" ? Buffer.from(pdf) : pdf);
       } catch {
         reply.code(500).send({ ok: false, error: "INTERNAL_ERROR" });
       }
@@ -29,5 +36,4 @@ export function buildRecoveryReportRoute(deps: {
   };
 }
 
-export { buildRecoveryReportRoute };
 export default buildRecoveryReportRoute;

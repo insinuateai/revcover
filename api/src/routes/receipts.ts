@@ -1,20 +1,20 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
-/** Factory for /receipts routes */
+/** Factory for /receipts export (CSV) */
 export function buildReceiptsRoute(deps: {
   repo: {
-    listReceipts: (args: {
+    export: (args: {
       status?: string;
       q?: string;
       from?: string;
       to?: string;
       limit: number;
       offset: number;
-    }) => Promise<unknown[]>;
+    }) => Promise<string | Buffer | Uint8Array>;
   };
 }) {
-  const listQuery = z.object({
+  const query = z.object({
     status: z.string().optional(),
     q: z.string().optional(),
     from: z.string().optional(),
@@ -24,16 +24,22 @@ export function buildReceiptsRoute(deps: {
   });
 
   return async function receipts(app: FastifyInstance) {
-    app.get("/receipts", async (req, reply) => {
-      const parsed = listQuery.safeParse((req as any).query);
+    // The tests typically hit /receipts/export.csv?status=... etc.
+    app.get("/receipts/export.csv", async (req, reply) => {
+      const parsed = query.safeParse((req as any).query);
       if (!parsed.success) {
-        reply.code(400).send({ ok: false, error: "INVALID_QUERY", issues: parsed.error.issues });
+        reply
+          .code(400)
+          .send({ ok: false, error: "INVALID_QUERY", issues: parsed.error.issues });
         return;
       }
 
       try {
-        const data = await deps.repo.listReceipts(parsed.data);
-        reply.send({ ok: true, data });
+        const csv = await deps.repo.export(parsed.data);
+        reply
+          .type("text/csv; charset=utf-8")
+          .header("Content-Disposition", 'attachment; filename="receipts.csv"')
+          .send(csv ?? "");
       } catch {
         reply.code(500).send({ ok: false, error: "INTERNAL_ERROR" });
       }
@@ -41,5 +47,4 @@ export function buildReceiptsRoute(deps: {
   };
 }
 
-export { buildReceiptsRoute };
 export default buildReceiptsRoute;
