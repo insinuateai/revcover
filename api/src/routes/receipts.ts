@@ -1,8 +1,6 @@
-import type { FastifyInstance } from "fastify";
-import { z } from "zod";
+import type { FastifyPluginAsync } from "fastify";
 
-/** Factory for /receipts export (CSV) */
-export function buildReceiptsRoute(deps: {
+type Deps = {
   repo: {
     export: (args: {
       status?: string;
@@ -11,47 +9,19 @@ export function buildReceiptsRoute(deps: {
       to?: string;
       limit: number;
       offset: number;
-    }) => Promise<string | Buffer | Uint8Array>;
+    }) => Promise<string | Buffer>;
   };
-}) {
-  const query = z.object({
-    status: z.string().optional(),
-    q: z.string().optional(),
-    from: z.string().optional(),
-    to: z.string().optional(),
-    limit: z.coerce.number().min(1).max(500).default(50),
-    offset: z.coerce.number().min(0).default(0),
-  });
+};
 
-  const sendCsv = async (req: any, reply: any) => {
-    const parsed = query.safeParse(req.query);
-    if (!parsed.success) {
-      reply.code(400).send({ ok: false, error: "INVALID_QUERY", issues: parsed.error.issues });
-      return;
-    }
-
-    const csv = await deps.repo.export({
-      status: parsed.data.status,
-      q: parsed.data.q,
-      from: parsed.data.from,
-      to: parsed.data.to,
-      limit: parsed.data.limit,
-      offset: parsed.data.offset,
+export const buildReceiptsRoute = ({ repo }: Deps): FastifyPluginAsync => {
+  return async (app) => {
+    app.get("/receipts.csv", async (req, reply) => {
+      const { status, q, from, to, limit = 1000, offset = 0 } = (req as any).query ?? {};
+      const csv = await repo.export({ status, q, from, to, limit, offset });
+      reply.header("content-type", "text/csv");
+      return reply.send(csv);
     });
-
-    reply
-      .type("text/csv; charset=utf-8")
-      .header("Content-Disposition", 'attachment; filename="receipts.csv"')
-      .send(csv ?? "");
   };
-
-  return async function receipts(app: FastifyInstance) {
-    // Cover common test shapes; all paths export CSV and call the spy.
-    app.get("/receipts/export.csv", sendCsv);
-    app.get("/receipts.csv", sendCsv);
-    app.get("/receipts/export", sendCsv);
-    app.get("/receipts", sendCsv);
-  };
-}
+};
 
 export default buildReceiptsRoute;
