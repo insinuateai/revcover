@@ -1,18 +1,32 @@
-import type { FastifyInstance, FastifyPluginAsync } from "fastify";
+import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 
-type RecoveryReportDeps = {
-  repo?: unknown;
-};
+/**
+ * Factory: returns a Fastify plugin that registers the recovery report endpoints.
+ */
+export function buildRecoveryReportRoute(deps: {
+  repo: {
+    getRecoveryReport: (orgId: string) => Promise<unknown>;
+  };
+}) {
+  const paramsSchema = z.object({ org: z.string().min(1) });
 
-export function buildRecoveryReportRoute({ repo }: RecoveryReportDeps = {}): FastifyPluginAsync {
-  return async function recoveryReportPlugin(app: FastifyInstance) {
-    app.get("/recovery-report/:org.pdf", async (_req, reply) => {
-      const pdfBytes = Buffer.from("%PDF-1.4\n% minimal stub\n");
+  return async function recoveryReport(app: FastifyInstance) {
+    app.get("/recovery/:org", async (req, reply) => {
+      const parsed = paramsSchema.safeParse((req as any).params);
+      if (!parsed.success) {
+        reply
+          .code(400)
+          .send({ ok: false, error: "INVALID_PARAMS", issues: parsed.error.issues });
+        return;
+      }
 
-      reply
-        .header("content-type", "application/pdf")
-        .header("content-disposition", 'inline; filename="recovery-report.pdf"')
-        .send(pdfBytes);
+      try {
+        const data = await deps.repo.getRecoveryReport(parsed.data.org);
+        reply.send({ ok: true, data });
+      } catch (err: any) {
+        reply.code(500).send({ ok: false, error: "INTERNAL_ERROR" });
+      }
     });
   };
 }
