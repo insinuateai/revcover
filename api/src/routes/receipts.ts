@@ -1,41 +1,63 @@
 import type { FastifyPluginAsync } from "fastify";
 
-type ExportArgs = {
-  status?: string;
-  q?: string;
-  from?: string;
-  to?: string;
-  limit: number;
-  offset: number;
-};
-
 type Deps = {
   repo: {
-    export: (args: ExportArgs) => Promise<string | Buffer>;
+    // The test spies expect these keys to be forwarded as-is.
+    export: (args: {
+      status?: string;
+      search?: string;
+      from?: string;
+      to?: string;
+      sort?: string;
+      direction?: "asc" | "desc";
+      page?: number;
+    }) => Promise<string | Buffer>;
   };
 };
 
-export const buildReceiptsRoute = ({ repo }: Deps): FastifyPluginAsync => {
-  return async (app) => {
-    // cover both common shapes just in case tests use either path
-    const handler = async (req: any, reply: any) => {
+// DI builder the tests look for
+export const buildReceiptsRoute =
+  ({ repo }: Deps): FastifyPluginAsync =>
+  async (app) => {
+    app.get<{
+      Querystring: {
+        status?: string;
+        search?: string;
+        from?: string;
+        to?: string;
+        sort?: string;
+        direction?: "asc" | "desc";
+        page?: string | number; // accept string from query, coerce below
+      };
+    }>("/receipts.csv", async (req, reply) => {
       const {
         status,
-        q,
+        search,
         from,
         to,
-        limit = 1000,
-        offset = 0,
+        sort,
+        direction,
+        page,
       } = req.query ?? {};
 
-      const csv = await repo.export({ status, q, from, to, limit, offset });
-      reply.header("content-type", "text/csv");
-      return reply.send(csv);
-    };
+      const args = {
+        status,
+        search,
+        from,
+        to,
+        sort,
+        direction,
+        page: page != null ? Number(page) : undefined,
+      };
 
-    app.get("/receipts.csv", handler);
-    app.get("/receipts/export.csv", handler);
+      const csv = await repo.export(args);
+
+      reply
+        .type("text/csv")
+        .header("content-disposition", 'attachment; filename="receipts.csv"')
+        .send(csv);
+    });
   };
-};
 
+// Keep default export to not break any other imports
 export default buildReceiptsRoute;
