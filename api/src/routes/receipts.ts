@@ -1,10 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
-/**
- * Factory: returns a Fastify plugin that registers the receipts endpoints.
- * Tests will import { buildReceiptsRoute } (named) and pass a mock repo.
- */
+/** Factory for /receipts routes */
 export function buildReceiptsRoute(deps: {
   repo: {
     listReceipts: (args: {
@@ -30,22 +27,19 @@ export function buildReceiptsRoute(deps: {
     app.get("/receipts", async (req, reply) => {
       const parsed = listQuery.safeParse((req as any).query);
       if (!parsed.success) {
-        reply
-          .code(400)
-          .send({ ok: false, error: "INVALID_QUERY", issues: parsed.error.issues });
+        reply.code(400).send({ ok: false, error: "INVALID_QUERY", issues: parsed.error.issues });
         return;
       }
 
       try {
         const data = await deps.repo.listReceipts(parsed.data);
         reply.send({ ok: true, data });
-      } catch (err: any) {
+      } catch {
         reply.code(500).send({ ok: false, error: "INTERNAL_ERROR" });
       }
     });
   };
 }
 
-// Keep both named and default exports (tests use named; default is convenient)
 export { buildReceiptsRoute };
 export default buildReceiptsRoute;
