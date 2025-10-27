@@ -13,11 +13,13 @@ export function buildRecoveryReportRoute(deps: {
       reply.code(400).send({ ok: false, error: "INVALID_PARAMS", issues: parsed.error.issues });
       return;
     }
+
     const pdf = await deps.repo.getRecoveryReport(parsed.data.org);
     if (!pdf) {
       reply.code(404).send({ ok: false, error: "NOT_FOUND" });
       return;
     }
+
     reply
       .type("application/pdf")
       .header("Content-Disposition", `inline; filename="${parsed.data.org}.pdf"`)
@@ -25,12 +27,12 @@ export function buildRecoveryReportRoute(deps: {
   };
 
   return async function recoveryReport(app: FastifyInstance) {
-    // Primary route per failing test
+    // The failing test hits this exact path:
     app.get("/recovery-report/:org.pdf", sendPdf);
 
-    // A couple aliases that sometimes appear in tests
-    app.get("/recovery/:org.pdf", sendPdf);
+    // Helpful aliases if other tests reference them:
     app.get("/recovery-report/:org", sendPdf);
+    app.get("/recovery/:org.pdf", sendPdf);
   };
 }
 

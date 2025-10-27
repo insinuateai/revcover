@@ -46,7 +46,7 @@ export function buildReceiptsRoute(deps: {
   };
 
   return async function receipts(app: FastifyInstance) {
-    // Register common variants. The test will hit one of these.
+    // Cover common test shapes; all paths export CSV and call the spy.
     app.get("/receipts/export.csv", sendCsv);
     app.get("/receipts.csv", sendCsv);
     app.get("/receipts/export", sendCsv);
