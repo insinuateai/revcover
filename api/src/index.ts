@@ -17,8 +17,9 @@ export default async function buildApp() {
   const app = Fastify({ logger: true });
 
   const repo = {
+    export: async (_args: unknown) => "id,amount\n1,100\n",
+    getRecoveryReport: async (_org: string) => Buffer.from("%PDF-1.4 dummy\n", "utf8"),
     listReceipts: async (_args: unknown) => [],
-    getRecoveryReport: async (_org: string) => ({}),
   };
 
   await app.register(cors, {
