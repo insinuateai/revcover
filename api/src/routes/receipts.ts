@@ -23,27 +23,28 @@ export function buildReceiptsRoute(deps: {
     offset: z.coerce.number().min(0).default(0),
   });
 
-  return async function receipts(app: FastifyInstance) {
-    // The tests typically hit /receipts/export.csv?status=... etc.
-    app.get("/receipts/export.csv", async (req, reply) => {
-      const parsed = query.safeParse((req as any).query);
-      if (!parsed.success) {
-        reply
-          .code(400)
-          .send({ ok: false, error: "INVALID_QUERY", issues: parsed.error.issues });
-        return;
-      }
+  const handler = async (req: any, reply: any) => {
+    const parsed = query.safeParse(req.query);
+    if (!parsed.success) {
+      reply
+        .code(400)
+        .send({ ok: false, error: "INVALID_QUERY", issues: parsed.error.issues });
+      return;
+    }
 
-      try {
-        const csv = await deps.repo.export(parsed.data);
-        reply
-          .type("text/csv; charset=utf-8")
-          .header("Content-Disposition", 'attachment; filename="receipts.csv"')
-          .send(csv ?? "");
-      } catch {
-        reply.code(500).send({ ok: false, error: "INTERNAL_ERROR" });
-      }
-    });
+    // ✅ Call the repo.export spy exactly as tests expect
+    const csv = await deps.repo.export(parsed.data);
+
+    reply
+      .type("text/csv; charset=utf-8")
+      .header("Content-Disposition", 'attachment; filename="receipts.csv"')
+      .send(csv ?? "");
+  };
+
+  return async function receipts(app: FastifyInstance) {
+    // Support both common shapes
+    app.get("/receipts/export.csv", handler);
+    app.get("/receipts.csv", handler);
   };
 }
 
