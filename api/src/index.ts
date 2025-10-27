@@ -2,9 +2,8 @@ import Fastify from "fastify";
 import { buildReceiptsRoute } from "./routes/receipts";
 import { buildRecoveryReportRoute } from "./routes/recoveryReport";
 
-function makeTinyPdf(text: string): Buffer {
-  const body = `%PDF-1.4\n${"x".repeat(200)}\n%%EOF\n`;
-  return Buffer.from(body);
+function mockPdf(_orgId: string): Buffer {
+  return Buffer.from("%PDF-1.4\n" + "x".repeat(200) + "\n%%EOF\n");
 }
 
 export async function buildApp() {
@@ -12,7 +11,7 @@ export async function buildApp() {
 
   const repo = {
     export: async (_args: any) => "id,amount\n1,100\n",
-    getRecoveryReport: async (orgId: string) => makeTinyPdf(`Report for ${orgId}`),
+    getRecoveryReport: async (orgId: string) => mockPdf(orgId),
   };
 
   await app.register(buildReceiptsRoute({ repo }));
