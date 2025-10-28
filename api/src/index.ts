@@ -1,39 +1,28 @@
 // api/src/index.ts
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import rawBody from "fastify-raw-body";
-import summaryRoute from "./summary.js";
-import stripeWebhook from "./webhooks/stripe.js";
+import { ENV } from "./lib/env.js";
+import { summaryRoutes } from "./routes/summary.js";
+import { receiptsRoutes } from "./routes/receipts.js";
+import { pulseRoutes } from "./routes/pulse.js";
 
-async function start() {
-  const app = Fastify({ logger: true });
+const app = Fastify({ logger: { level: ENV.LOG_LEVEL } });
 
-  // CORS (permissive in dev; restrict origins in prod)
-  await app.register(cors, { origin: true });
+await app.register(cors, { origin: true });
 
-  // Stripe needs the exact raw body for signature verification
-  await app.register(rawBody, {
-    field: "rawBody", // req.rawBody
-    global: true,
-    runFirst: true,
-    encoding: "utf8",
+app.get("/health", async (_req, reply) => reply.send({ ok: true }));
+app.get("/ready", async (_req, reply) => reply.send({ ready: true }));
+
+await app.register(summaryRoutes);
+await app.register(receiptsRoutes);
+await app.register(pulseRoutes);
+
+// 404 guard
+app.setNotFoundHandler((_req, reply) => reply.code(404).send({ ok: false, code: "RVC-404" }));
+
+app.listen({ port: ENV.PORT, host: "0.0.0.0" })
+  .then(() => app.log.info(`API listening on :${ENV.PORT} (${ENV.NODE_ENV})`))
+  .catch((err) => {
+    app.log.error(err);
+    process.exit(1);
   });
-
-  app.get("/health", async () => ({ ok: true }));
-
-  // API routes
-  await app.register(summaryRoute);
-  await app.register(stripeWebhook);
-
-  const port = Number(process.env.PORT ?? 3001);
-  const host = process.env.HOST ?? "0.0.0.0";
-  await app.listen({ port, host });
-  app.log.info(`✅ API listening on http://${host}:${port}`);
-}
-
-start().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error(err);
-  process.exit(1);
-});
-export {};
