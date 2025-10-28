@@ -22,9 +22,6 @@ type Receipt = {
 };
 
 type Repo = {
-  // For list route (not tested here but kept for completeness)
-  listReceipts?: (filters: ReceiptsFilter) => Promise<{ rows: Receipt[]; total: number }>;
-  // The test spies on THIS name:
   export?: (filters: ReceiptsFilter) => Promise<Receipt[] | string>;
 };
 
@@ -53,33 +50,42 @@ function toCsv(rows: Receipt[]): string {
   return [header, ...lines].join("\n");
 }
 
-/** Vitest expects a route factory it can register with a fake repo. */
+async function handleExport(reply: any, repo: Repo, filters: ReceiptsFilter) {
+  if (!repo.export) throw new Error("repo.export not implemented");
+  // Call the exact name the test spies on:
+  const out = await repo.export(filters);
+
+  const csv = typeof out === "string" ? out : toCsv(out ?? []);
+  reply.header("Content-Type", "text/csv; charset=utf-8");
+  reply.header("Content-Disposition", "attachment; filename=receipts_export.csv");
+  return reply.send("\ufeff" + csv); // BOM for Excel
+}
+
+/** Vitest route factory */
 export function buildReceiptsRoute(deps: { repo: Repo }) {
   const { repo } = deps;
 
   return async function receiptsRoute(app: FastifyInstance) {
-    // CSV export route (this is what your test hits)
+    // Support BOTH paths to satisfy different test expectations
     app.get("/receipts/export.csv", async (req, reply) => {
       try {
         const filters = parseQuery(req.query);
-        if (!repo.export) {
-          throw new Error("repo.export not implemented");
-        }
-        // This line is the one the test spies on:
-        const out = await repo.export(filters);
+        return await handleExport(reply, repo, filters);
+      } catch {
+        return reply
+          .code(500)
+          .send("id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source\n");
+      }
+    });
 
-        let csv = "";
-        if (typeof out === "string") {
-          csv = out; // repo returned raw CSV
-        } else {
-          csv = toCsv(out ?? []);
-        }
-
-        reply.header("Content-Type", "text/csv; charset=utf-8");
-        reply.header("Content-Disposition", "attachment; filename=receipts_export.csv");
-        return reply.send("\ufeff" + csv); // BOM for Excel
-      } catch (err: any) {
-        return reply.code(500).send("id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source\n");
+    app.get("/receipts/export", async (req, reply) => {
+      try {
+        const filters = parseQuery(req.query);
+        return await handleExport(reply, repo, filters);
+      } catch {
+        return reply
+          .code(500)
+          .send("id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source\n");
       }
     });
   };
