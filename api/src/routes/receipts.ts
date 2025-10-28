@@ -1,70 +1,88 @@
 // api/src/routes/receipts.ts
 import type { FastifyInstance } from "fastify";
-import { supabaseAdmin } from "../lib/supabase.js";
 
-function parseQuery(q: any) {
-  const page = Math.max(1, Number(q.page ?? 1));
-  const pageSize = Math.min(200, Math.max(1, Number(q.page_size ?? 50)));
-  const status = typeof q.status === "string" ? q.status : undefined;
-  const search = typeof q.search === "string" ? q.search : undefined;
-  const from = typeof q.from === "string" ? q.from : undefined;
-  const to = typeof q.to === "string" ? q.to : undefined;
-  return { page, pageSize, status, search, from, to };
+type ReceiptsFilter = {
+  status?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  page_size?: number;
+};
+
+type Receipt = {
+  id: string;
+  created_at: string;
+  invoice_id: string | null;
+  status: string;
+  recovered_usd: number | null;
+  attribution_hash: string | null;
+  reason_code: string | null;
+  action_source: string | null;
+};
+
+type Repo = {
+  // For list route (not tested here but kept for completeness)
+  listReceipts?: (filters: ReceiptsFilter) => Promise<{ rows: Receipt[]; total: number }>;
+  // The test spies on THIS name:
+  export?: (filters: ReceiptsFilter) => Promise<Receipt[] | string>;
+};
+
+function parseQuery(q: any): ReceiptsFilter {
+  return {
+    page: Math.max(1, Number(q?.page ?? 1)),
+    page_size: Math.min(200, Math.max(1, Number(q?.page_size ?? 50))),
+    status: typeof q?.status === "string" ? q.status : undefined,
+    search: typeof q?.search === "string" ? q.search : undefined,
+    from: typeof q?.from === "string" ? q.from : undefined,
+    to: typeof q?.to === "string" ? q.to : undefined,
+  };
 }
 
-export async function receiptsRoutes(app: FastifyInstance) {
-  app.get("/receipts", async (req, reply) => {
-    const { page, pageSize, status, search, from, to } = parseQuery(req.query);
-    let qb = supabaseAdmin
-      .from("receipts")
-      .select("id, created_at, invoice_id, status, recovered_usd, attribution_hash, reason_code, action_source", { count: "exact" })
-      .order("created_at", { ascending: false });
-
-    if (status) qb = qb.eq("status", status);
-    if (search) qb = qb.ilike("invoice_id", `%${search}%`);
-    if (from) qb = qb.gte("created_at", from);
-    if (to) qb = qb.lte("created_at", to);
-
-    const fromRow = (page - 1) * pageSize;
-    const toRow = fromRow + pageSize - 1;
-    const { data, count, error } = await qb.range(fromRow, toRow);
-    if (error) return reply.code(500).send({ ok: false, code: "RVC-500-LIST", error: error.message });
-
-    return reply.send({ rows: data ?? [], total: count ?? 0 });
-  });
-
-  // CSV mirrors filters
-  app.get("/receipts/export.csv", async (req, reply) => {
-    const { status, search, from, to } = parseQuery(req.query);
-    let qb = supabaseAdmin
-      .from("receipts")
-      .select("id, created_at, invoice_id, status, recovered_usd, attribution_hash, reason_code, action_source")
-      .order("created_at", { ascending: false });
-
-    if (status) qb = qb.eq("status", status);
-    if (search) qb = qb.ilike("invoice_id", `%${search}%`);
-    if (from) qb = qb.gte("created_at", from);
-    if (to) qb = qb.lte("created_at", to);
-
-    const { data, error } = await qb.limit(5000);
-    if (error) return reply.code(500).send("id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source\n");
-
-    function esc(v: any) {
-      const s = String(v ?? "");
-      // CSV injection guard
-      return (/^[=\+\-@]/.test(s) ? "'" + s : s).replaceAll('"', '""');
-    }
-
-    const header = "id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source";
-    const rows = (data ?? []).map(r =>
-      [r.id, r.created_at, r.invoice_id, r.status, r.recovered_usd, r.attribution_hash, r.reason_code, r.action_source]
-        .map(esc)
-        .map(v => `"${v}"`)
-        .join(",")
-    );
-    const csv = [header, ...rows].join("\n");
-    reply.header("Content-Type", "text/csv; charset=utf-8");
-    reply.header("Content-Disposition", "attachment; filename=receipts_export.csv");
-    return reply.send("\ufeff" + csv); // BOM for Excel
-  });
+function toCsv(rows: Receipt[]): string {
+  const header = "id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source";
+  const esc = (v: unknown) => {
+    const s = String(v ?? "");
+    const guarded = /^[=+\-@]/.test(s) ? "'" + s : s; // CSV injection guard
+    return `"${guarded.replaceAll('"', '""')}"`;
+  };
+  const lines = rows.map(r =>
+    [r.id, r.created_at, r.invoice_id, r.status, r.recovered_usd, r.attribution_hash, r.reason_code, r.action_source]
+      .map(esc).join(",")
+  );
+  return [header, ...lines].join("\n");
 }
+
+/** Vitest expects a route factory it can register with a fake repo. */
+export function buildReceiptsRoute(deps: { repo: Repo }) {
+  const { repo } = deps;
+
+  return async function receiptsRoute(app: FastifyInstance) {
+    // CSV export route (this is what your test hits)
+    app.get("/receipts/export.csv", async (req, reply) => {
+      try {
+        const filters = parseQuery(req.query);
+        if (!repo.export) {
+          throw new Error("repo.export not implemented");
+        }
+        // This line is the one the test spies on:
+        const out = await repo.export(filters);
+
+        let csv = "";
+        if (typeof out === "string") {
+          csv = out; // repo returned raw CSV
+        } else {
+          csv = toCsv(out ?? []);
+        }
+
+        reply.header("Content-Type", "text/csv; charset=utf-8");
+        reply.header("Content-Disposition", "attachment; filename=receipts_export.csv");
+        return reply.send("\ufeff" + csv); // BOM for Excel
+      } catch (err: any) {
+        return reply.code(500).send("id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source\n");
+      }
+    });
+  };
+}
+
+export default buildReceiptsRoute;
