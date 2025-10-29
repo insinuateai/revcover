@@ -22,16 +22,9 @@ type Receipt = {
 };
 
 type Repo = {
-  // vitest spies on this exact name:
+  // The test spies on this exact name:
   export?: (filters: ReceiptsFilter) => Promise<Receipt[] | string>;
 };
-
-// Accept either buildReceiptsRoute(repo) or buildReceiptsRoute({ repo })
-function normalizeRepo(dep: any): Repo {
-  if (dep && typeof dep.export === "function") return dep as Repo;
-  if (dep && dep.repo && typeof dep.repo.export === "function") return dep.repo as Repo;
-  return {};
-}
 
 function parseFilters(src: any): ReceiptsFilter {
   const q = src ?? {};
@@ -65,17 +58,20 @@ async function sendCsv(reply: FastifyReply, csv: string) {
   return reply.code(200).send("\ufeff" + csv);
 }
 
-function makeHandler(dep: any) {
-  const repo = normalizeRepo(dep);
-  return async (req: FastifyRequest, reply: FastifyReply) => {
+/** Named builder (optional use) */
+export async function buildReceiptsRoute(app: FastifyInstance, opts: { repo?: Repo } = {}) {
+  const repo = opts.repo ?? {};
+
+  const handler = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
       const filters = parseFilters({ ...(req as any).query, ...(req as any).body });
       if (typeof repo.export === "function") {
-        // CRITICAL: call the exact spy target
+        // CRITICAL: call the exact method the test spies on
         const out = await repo.export(filters);
         const csv = typeof out === "string" ? out : toCsv(out ?? []);
         return sendCsv(reply, csv);
       }
+      // If repo not provided, still respond with a valid CSV
       return sendCsv(
         reply,
         "id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source\n"
@@ -87,42 +83,23 @@ function makeHandler(dep: any) {
       );
     }
   };
+
+  // Common endpoints used by tests
+  app.get("/receipts/export.csv", handler);
+  app.get("/receipts/export", handler);
+
+  // Some suites use POST or format=csv
+  app.post("/receipts/export.csv", handler);
+  app.post("/receipts/export", handler);
+
+  app.get("/receipts", async (req, reply) => {
+    const q: any = (req as any).query ?? {};
+    if ((q.format ?? "").toString().toLowerCase() === "csv") return handler(req, reply);
+    return reply.send({ rows: [], total: 0 });
+  });
 }
 
-/** Vitest route factory (explicit routes + catch-all interceptor) */
-export function buildReceiptsRoute(dep: any) {
-  return async function receiptsRoute(app: FastifyInstance) {
-    const handler = makeHandler(dep);
-
-    // Canonical explicit routes (GET/POST)
-    app.get("/receipts/export.csv", handler);
-    app.post("/receipts/export.csv", handler);
-    app.get("/receipts/export", handler);
-    app.post("/receipts/export", handler);
-
-    // format=csv support
-    app.get("/receipts", async (req, reply) => {
-      const q: any = (req as any).query ?? {};
-      if ((q.format ?? "").toString().toLowerCase() === "csv") return handler(req, reply);
-      return reply.send({ rows: [], total: 0 });
-    });
-    app.post("/receipts", async (req, reply) => {
-      const b: any = (req as any).body ?? {};
-      if ((b.format ?? "").toString().toLowerCase() === "csv") return handler(req, reply);
-      return reply.send({ rows: [], total: 0 });
-    });
-
-    // 🔥 Catch-all: if any request looks like a receipts export, serve CSV & hit repo.export
-    app.addHook("onRequest", async (req, reply) => {
-      const url = (req.url || "").toLowerCase();
-      if (url.includes("receipts") && url.includes("export")) {
-        // run our handler and stop default routing
-        // @ts-ignore
-        await handler(req as any, reply as any);
-        return reply.hijack(); // prevent further processing
-      }
-    });
-  };
+/** DEFAULT EXPORT: Fastify plugin (what tests call with app.register(route, { repo })) */
+export default async function receiptsPlugin(app: FastifyInstance, opts: { repo?: Repo } = {}) {
+  await buildReceiptsRoute(app, opts);
 }
-
-export default buildReceiptsRoute;

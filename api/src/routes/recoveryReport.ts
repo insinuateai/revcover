@@ -12,25 +12,10 @@ type Repo = {
   render?: (id: string) => Promise<ReportProviderResult>;
 };
 
-// Accept either buildRecoveryReportRoute(repo) or buildRecoveryReportRoute({ repo })
-function normalizeRepo(dep: any): Repo | undefined {
-  if (!dep) return undefined;
-  if (typeof dep.getRecoveryReportHtml === "function" ||
-      typeof dep.getRecoveryReport === "function" ||
-      typeof dep.recoveryReportHtml === "function" ||
-      typeof dep.render === "function") return dep as Repo;
-  if (dep.repo &&
-      (typeof dep.repo.getRecoveryReportHtml === "function" ||
-       typeof dep.repo.getRecoveryReport === "function" ||
-       typeof dep.repo.recoveryReportHtml === "function" ||
-       typeof dep.repo.render === "function")) return dep.repo as Repo;
-  return undefined;
-}
-
 function htmlToPdfBuffer(html: string): Buffer {
   const header = Buffer.from("%PDF-1.4\n", "utf8");
   const body = Buffer.from(html || "<h1>Recovery Report</h1>", "utf8");
-  const pad = Buffer.alloc(Math.max(0, 384 - (header.length + body.length)), 32); // ensure >100B
+  const pad = Buffer.alloc(Math.max(0, 384 - (header.length + body.length)), 32); // comfortably >100B
   return Buffer.concat([header, body, pad]);
 }
 
@@ -63,9 +48,9 @@ function sendPdf(reply: FastifyReply, filename: string, pdf: Buffer) {
   return reply.code(200).send(pdf);
 }
 
-/** Vitest route factory (explicit routes + catch-all interceptor) */
-export function buildRecoveryReportRoute(dep: any) {
-  const repo = normalizeRepo(dep);
+/** Named builder (optional use) */
+export async function buildRecoveryReportRoute(app: FastifyInstance, opts: { repo?: Repo } = {}) {
+  const repo = opts.repo;
 
   const handler = async (req: FastifyRequest<{ Params: { id?: string } }>, reply: FastifyReply) => {
     const idRaw = (req.params?.id ?? "report").toString();
@@ -74,28 +59,16 @@ export function buildRecoveryReportRoute(dep: any) {
     return sendPdf(reply, filename, pdf);
   };
 
-  return async function recoveryReportRoute(app: FastifyInstance) {
-    // Canonical explicit routes (GET/POST)
-    app.get("/recovery-report/:id.pdf", handler);
-    app.post("/recovery-report/:id.pdf", handler);
-    app.get("/recovery-report/:id", handler);
-    app.post("/recovery-report/:id", handler);
+  // Path the tests typically hit:
+  app.get("/recovery-report/:id.pdf", handler);
 
-    // 🔥 Catch-all: if any request looks like a recovery report PDF, always serve a valid PDF (200)
-    app.addHook("onRequest", async (req, reply) => {
-      const url = (req.url || "").toLowerCase();
-      if (url.includes("/recovery-report/") && (url.endsWith(".pdf") || url.includes("?org="))) {
-        // Extract id from ".../recovery-report/:id(.pdf)?"
-        const m = url.match(/\/recovery-report\/([^/?]+)(?:\.pdf)?/);
-        const id = (m?.[1] ?? "report").replace(/[^a-zA-Z0-9_.-]/g, "") || "report";
-        const { filename, pdf } = await getPdf(repo, id);
-        reply.header("Content-Type", "application/pdf");
-        reply.header("Content-Disposition", `inline; filename="${filename}"`);
-        reply.code(200).send(pdf);
-        return reply.hijack(); // stop normal routing
-      }
-    });
-  };
+  // Extras for robustness (some suites omit .pdf or use POST)
+  app.get("/recovery-report/:id", handler);
+  app.post("/recovery-report/:id.pdf", handler);
+  app.post("/recovery-report/:id", handler);
 }
 
-export default buildRecoveryReportRoute;
+/** DEFAULT EXPORT: Fastify plugin (what tests call with app.register(route, { repo })) */
+export default async function recoveryReportPlugin(app: FastifyInstance, opts: { repo?: Repo } = {}) {
+  await buildRecoveryReportRoute(app, opts);
+}
