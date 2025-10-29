@@ -26,6 +26,10 @@ type Repo = {
   export?: (filters: ReceiptsFilter) => Promise<Receipt[] | string>;
 };
 
+function getRepoFromApp(app: any): any | undefined {
+  return app?.repo ?? app?.receiptsRepo ?? app?.config?.repo ?? undefined;
+}
+
 function parseFilters(src: any): ReceiptsFilter {
   const q = src ?? {};
   return {
@@ -83,7 +87,8 @@ function makeHandler(repo?: Repo) {
 }
 
 async function registerReceipts(app: FastifyInstance, repo?: Repo) {
-  const handler = makeHandler(repo);
+  const effectiveRepo = repo ?? (getRepoFromApp(app) as Repo | undefined);
+  const handler = makeHandler(effectiveRepo);
 
   // Common paths
   app.get("/receipts/export.csv", handler);

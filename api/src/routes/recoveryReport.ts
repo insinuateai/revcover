@@ -12,6 +12,10 @@ type Repo = {
   render?: (id: string) => Promise<ReportProviderResult>;
 };
 
+function getRepoFromApp(app: any): any | undefined {
+  return app?.repo ?? app?.reportRepo ?? app?.config?.repo ?? undefined;
+}
+
 function htmlToPdfBuffer(html: string): Buffer {
   const header = Buffer.from("%PDF-1.4\n", "utf8");
   const body = Buffer.from(html || "<h1>Recovery Report</h1>", "utf8");
@@ -48,10 +52,11 @@ function sendPdf(reply: FastifyReply, filename: string, pdf: Buffer) {
 }
 
 async function registerRecovery(app: FastifyInstance, repo?: Repo) {
+  const effectiveRepo = repo ?? (getRepoFromApp(app) as Repo | undefined);
   const handler = async (req: FastifyRequest<{ Params: { id?: string } }>, reply: FastifyReply) => {
     const idRaw = (req.params?.id ?? "report").toString();
     const id = idRaw.replace(/[^a-zA-Z0-9_.-]/g, "") || "report";
-    const { filename, pdf } = await getPdf(repo, id);
+    const { filename, pdf } = await getPdf(effectiveRepo, id);
     return sendPdf(reply, filename, pdf);
   };
 
