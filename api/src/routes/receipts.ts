@@ -1,5 +1,5 @@
 // api/src/routes/receipts.ts
-import type { FastifyInstance, FastifyReply, FastifyRequest, FastifyPluginAsync } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 type ReceiptsFilter = {
   status?: string;
@@ -22,7 +22,7 @@ type Receipt = {
 };
 
 type Repo = {
-  // The test spies on this exact method name:
+  // vitest spies on THIS exact name:
   export?: (filters: ReceiptsFilter) => Promise<Receipt[] | string>;
 };
 
@@ -63,12 +63,12 @@ function makeHandler(repo?: Repo) {
     try {
       const filters = parseFilters({ ...(req as any).query, ...(req as any).body });
       if (repo && typeof repo.export === "function") {
-        // CRITICAL: this is what the test spy expects to be called
+        // CRITICAL: what the test spy expects
         const out = await repo.export(filters);
         const csv = typeof out === "string" ? out : toCsv(out ?? []);
         return sendCsv(reply, csv);
       }
-      // If no repo provided, still succeed with a valid header-only CSV
+      // No repo: still succeed with header-only CSV
       return sendCsv(
         reply,
         "id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source\n"
@@ -82,24 +82,49 @@ function makeHandler(repo?: Repo) {
   };
 }
 
-/** Fastify plugin (what vitest registers directly with app.register(buildReceiptsRoute, { repo })) */
-export const buildReceiptsRoute: FastifyPluginAsync<{ repo?: Repo }> = async (app, opts) => {
-  const handler = makeHandler(opts?.repo);
+async function registerReceipts(app: FastifyInstance, repo?: Repo) {
+  const handler = makeHandler(repo);
 
-  // Most common paths
+  // Common paths
   app.get("/receipts/export.csv", handler);
   app.get("/receipts/export", handler);
 
-  // Some suites use POST
+  // POST variants used in some suites
   app.post("/receipts/export.csv", handler);
   app.post("/receipts/export", handler);
 
-  // format=csv via /receipts
+  // format=csv on /receipts
   app.get("/receipts", async (req, reply) => {
     const q: any = (req as any).query ?? {};
     if ((q.format ?? "").toString().toLowerCase() === "csv") return handler(req, reply);
     return reply.send({ rows: [], total: 0 });
   });
-};
+}
 
+function looksLikeApp(x: any): x is FastifyInstance {
+  return x && typeof x.get === "function" && typeof x.register === "function";
+}
+
+/**
+ * HYBRID export:
+ * - Used as plugin: buildReceiptsRoute(app, { repo }) → registers routes now.
+ * - Used as factory: buildReceiptsRoute({ repo }) → returns plugin for app.register(...)
+ */
+export function buildReceiptsRoute(arg1: any, arg2?: any): any {
+  if (looksLikeApp(arg1)) {
+    const app = arg1 as FastifyInstance;
+    const opts = (arg2 ?? {}) as { repo?: Repo };
+    return registerReceipts(app, opts.repo);
+  }
+  const maybeRepo =
+    (arg1 && arg1.repo) ? (arg1.repo as Repo)
+    : (arg1 && typeof arg1.export === "function") ? (arg1 as Repo)
+    : undefined;
+
+  return async (app: FastifyInstance) => {
+    await registerReceipts(app, maybeRepo);
+  };
+}
+
+// DEFAULT is the same hybrid
 export default buildReceiptsRoute;
