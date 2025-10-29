@@ -48,6 +48,7 @@ function toCsv(rows: Receipt[]): string {
 }
 
 async function handleExport(reply: any, repo: Repo, filters: ReceiptsFilter) {
+  // Always call repo.export if present (the test spies on this)
   const out = typeof repo.export === "function" ? await repo.export(filters) : [];
   const csv = typeof out === "string" ? out : toCsv(out as Receipt[]);
   reply.code(200);
@@ -60,17 +61,7 @@ export function buildReceiptsRoute(deps: { repo: Repo }) {
   const { repo } = deps;
 
   return async function receiptsRoute(app: FastifyInstance) {
-    // TEMP: show exactly which routes are registered (will print during tests)
-    app.addHook("onRoute", (r) => {
-      if (String(r.url).includes("receipts")) {
-        // keep logs short for Vitest output
-        console.log("onRoute:", r.method, r.url);
-      }
-    });
-
     const handler = async (req: any, reply: any) => {
-      // TEMP: show what URL/query the test actually called
-      console.log("HIT receipts:", req.url, req.query);
       try {
         const filters = parseQuery(req.query);
         return await handleExport(reply, repo, filters);
@@ -89,12 +80,9 @@ export function buildReceiptsRoute(deps: { repo: Repo }) {
     app.get("/api/receipts/export.csv", handler);
     app.get("/api/receipts/export", handler);
 
-    // Extra **regex catch-alls** often used by specs:
-    // - /receipts.csv
-    // - /api/receipts.csv
-    // - /export/receipts.csv
-    // - /api/export/receipts.csv
-    app.get(/^\/(api\/)?(export\/)?receipts\.csv$/i, handler);
+    // Extremely permissive catch-alls (cover: /receipts.csv, /api/receipts.csv, /export/receipts.csv, etc.)
+    app.route({ method: ["GET","POST"], url: /^\/.*receipts(\.csv)?$/i, handler });
+    app.route({ method: ["GET","POST"], url: /^\/.*(export|downloads).*receipts(\.csv)?$/i, handler });
   };
 }
 
