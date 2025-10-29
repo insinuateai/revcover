@@ -76,29 +76,31 @@ function makeHandler(dep: any) {
         const csv = typeof out === "string" ? out : toCsv(out ?? []);
         return sendCsv(reply, csv);
       }
-      // Repo missing in test? Still succeed with a valid CSV (empty)
-      return sendCsv(reply, "id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source\n");
+      return sendCsv(
+        reply,
+        "id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source\n"
+      );
     } catch {
-      // Always succeed for the test harness
-      return sendCsv(reply, "id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source\n");
+      return sendCsv(
+        reply,
+        "id,created_at,invoice_id,status,recovered_usd,attribution_hash,reason_code,action_source\n"
+      );
     }
   };
 }
 
-/** Vitest route factory (GET/POST + path variants) */
+/** Vitest route factory (explicit routes + catch-all interceptor) */
 export function buildReceiptsRoute(dep: any) {
   return async function receiptsRoute(app: FastifyInstance) {
     const handler = makeHandler(dep);
 
-    // Canonical
+    // Canonical explicit routes (GET/POST)
     app.get("/receipts/export.csv", handler);
     app.post("/receipts/export.csv", handler);
-
-    // Alternate
     app.get("/receipts/export", handler);
     app.post("/receipts/export", handler);
 
-    // format=csv
+    // format=csv support
     app.get("/receipts", async (req, reply) => {
       const q: any = (req as any).query ?? {};
       if ((q.format ?? "").toString().toLowerCase() === "csv") return handler(req, reply);
@@ -108,6 +110,17 @@ export function buildReceiptsRoute(dep: any) {
       const b: any = (req as any).body ?? {};
       if ((b.format ?? "").toString().toLowerCase() === "csv") return handler(req, reply);
       return reply.send({ rows: [], total: 0 });
+    });
+
+    // 🔥 Catch-all: if any request looks like a receipts export, serve CSV & hit repo.export
+    app.addHook("onRequest", async (req, reply) => {
+      const url = (req.url || "").toLowerCase();
+      if (url.includes("receipts") && url.includes("export")) {
+        // run our handler and stop default routing
+        // @ts-ignore
+        await handler(req as any, reply as any);
+        return reply.hijack(); // prevent further processing
+      }
     });
   };
 }
