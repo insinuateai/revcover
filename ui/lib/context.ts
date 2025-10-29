@@ -23,8 +23,6 @@ export async function fetchRecentContext(orgId: string, userId: string, limit = 
     .reverse()
     .map((m) => `${m.role.toUpperCase()}: ${m.message}`)
     .join("\n");
-
   const mem = (insights ?? []).map((i) => `• ${i.summary}`).join("\n");
-
   return { recentMessages: recent, memoryBullets: mem };
 }
