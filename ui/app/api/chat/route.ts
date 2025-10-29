@@ -1,75 +1,73 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { embedText } from "@/lib/embeddings";
-import { fetchRecentContext } from "@/lib/context";
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { embedText } from '@/lib/embeddings'
+import { fetchRecentContext } from '@/lib/context'
 
-export const runtime = "nodejs";
-const OPENAI_MODEL = "gpt-4o-mini";
+export const runtime = 'nodejs'
+const OPENAI_MODEL = 'gpt-4o-mini'
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { message, userId, orgId } = body as { message?: string; userId?: string; orgId?: string };
-    if (!message) return NextResponse.json({ error: "message required" }, { status: 400 });
+    const body = await req.json()
+    const { message, userId, orgId } = body as { message?: string; userId?: string; orgId?: string }
+    if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 })
 
-    const resolvedOrgId = orgId || process.env.APP_DEFAULT_ORG_ID!;
-    const resolvedUserId = userId || "anonymous-user";
+    const resolvedOrgId = orgId || process.env.APP_DEFAULT_ORG_ID!
+    const resolvedUserId = userId || 'anonymous-user'
 
-    const embedding = await embedText(message);
+    // 1) store user message + embedding
+    const embedding = await embedText(message)
     const { data: inserted, error: insertErr } = await supabaseAdmin
-      .from("conversation_messages")
-      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, role: "user", message, embedding })
-      .select()
-      .single();
-    if (insertErr) throw insertErr;
-    const sourceMessageId = inserted?.id;
+      .from('conversation_messages')
+      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, role: 'user', message, embedding })
+      .select().single()
+    if (insertErr) throw insertErr
+    const sourceMessageId = inserted?.id
 
-    const ctx = await fetchRecentContext(resolvedOrgId, resolvedUserId);
-    const system = "You are Helix, a crisp, helpful AI that tracks context and suggests actionable next steps.";
+    // 2) build lightweight context
+    const ctx = await fetchRecentContext(resolvedOrgId, resolvedUserId)
+    const system = 'You are Helix, a crisp, helpful AI that tracks context and suggests actionable next steps.'
     const prompt = [
       system,
-      ctx.memoryBullets ? `Recent memory:\n${ctx.memoryBullets}\n` : "",
-      ctx.recentMessages ? `Conversation:\n${ctx.recentMessages}\n` : "",
+      ctx.memoryBullets ? `Recent memory:\n${ctx.memoryBullets}\n` : '',
+      ctx.recentMessages ? `Conversation:\n${ctx.recentMessages}\n` : '',
       `USER: ${message}`,
-      "ASSISTANT:",
-    ].join("\n");
+      'ASSISTANT:'
+    ].join('\n')
 
-    const openaiKey = process.env.OPENAI_API_KEY;
-    if (!openaiKey) throw new Error("OPENAI_API_KEY missing");
+    // 3) LLM reply
+    const openaiKey = process.env.OPENAI_API_KEY
+    if (!openaiKey) throw new Error('OPENAI_API_KEY missing')
+    const llmRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: OPENAI_MODEL, messages: [{ role: 'user', content: prompt }], temperature: 0.2, max_tokens: 250 })
+    })
+    if (!llmRes.ok) throw new Error(`OpenAI chat error: ${await llmRes.text()}`)
+    const llm = await llmRes.json()
+    const assistantText = llm.choices?.[0]?.message?.content?.trim() || 'OK.'
 
-    const llmRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${openaiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-        max_tokens: 250,
-      }),
-    });
-    if (!llmRes.ok) throw new Error(`OpenAI chat error: ${await llmRes.text()}`);
-    const llm = await llmRes.json();
-    const assistantText = llm.choices?.[0]?.message?.content?.trim() || "OK.";
-
+    // 4) store assistant reply
     const { error: insertAssistantErr } = await supabaseAdmin
-      .from("conversation_messages")
-      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, role: "assistant", message: assistantText, embedding: null });
-    if (insertAssistantErr) throw insertAssistantErr;
+      .from('conversation_messages')
+      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, role: 'assistant', message: assistantText, embedding: null })
+    if (insertAssistantErr) throw insertAssistantErr
 
-    const summary = summarizeForMemory(message);
+    // 5) seed a tiny memory insight
+    const summary = summarizeForMemory(message)
     const { error: memErr } = await supabaseAdmin
-      .from("memory_insights")
-      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, source_message_id: sourceMessageId, summary, importance: 1 });
-    if (memErr) throw memErr;
+      .from('memory_insights')
+      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, source_message_id: sourceMessageId, summary, importance: 1 })
+    if (memErr) throw memErr
 
-    return NextResponse.json({ ok: true, reply: assistantText });
+    return NextResponse.json({ ok: true, reply: assistantText })
   } catch (e: any) {
-    console.error("chat route error", e);
-    return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 });
+    console.error('chat route error', e)
+    return NextResponse.json({ error: e?.message || 'Unknown error' }, { status: 500 })
   }
 }
 
 function summarizeForMemory(input: string) {
-  const t = input.trim().replace(/\s+/g, " ");
-  return t.length <= 140 ? t : t.slice(0, 137) + "...";
+  const t = input.trim().replace(/\s+/g, ' ')
+  return t.length <= 140 ? t : t.slice(0, 137) + '...'
 }
