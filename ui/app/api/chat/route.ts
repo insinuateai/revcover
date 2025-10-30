@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     const importance = scoreImportance(`${message} ${reply}`)
 
     // Try to embed the summary; if it fails, reuse assistant embedding
-    let summaryEmbedding: number[] | null = null
+    let summaryEmbedding = asstEmbedding
     try {
       summaryEmbedding = await embedText(summary)
     } catch (e) {
@@ -102,7 +102,16 @@ export async function POST(req: NextRequest) {
     })
     if (miErr) throw miErr
 
-    return NextResponse.json({ ok: true, reply })
+    return NextResponse.json({
+      ok: true,
+      reply,
+      diag: {
+        // these three must appear in the response
+        userDim: userEmbedding.length,
+        asstDim: asstEmbedding.length,
+        memDim:  summaryEmbedding.length,
+      }
+    })
   } catch (e: any) {
     console.error('chat route error', e)
     return NextResponse.json({ error: e?.message || 'Unknown error' }, { status: 500 })
