@@ -1,9 +1,11 @@
+export const runtime = 'nodejs' // avoid Edge runtime issues with process.env/fetch
+export const dynamic = 'force-dynamic' // avoid caching in dev
+
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { embedText } from '@/lib/embeddings'
 import { fetchRecentContext } from '@/lib/context'
 
-export const runtime = 'nodejs'
 const OPENAI_MODEL = 'gpt-4o-mini'
 
 export async function POST(req: NextRequest) {

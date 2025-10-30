@@ -1,8 +1,8 @@
+export const runtime = 'nodejs' // avoid Edge runtime issues with process.env/fetch
+export const dynamic = 'force-dynamic' // avoid caching in dev
+
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
-
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
 
 const MODEL = 'gpt-4o-mini'
 const DAYS = 7
@@ -95,4 +95,3 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true, report })
 }
-
