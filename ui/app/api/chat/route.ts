@@ -1,7 +1,11 @@
+// ui/app/api/chat/route.ts
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { embedText } from '@/lib/embeddings'
 import { fetchRecentContext } from '@/lib/context'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 const MODEL = 'gpt-4o-mini'
 
@@ -21,13 +25,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'message, userId, orgId required' }, { status: 400 })
     }
 
-    // 1) Retrieve recent context + memory
     const { recentMessages, memoryBullets } = await fetchRecentContext(orgId, userId)
 
     const system = [
       'You are Synex, an evolving company brain.',
       'Use recent conversation and memory bullets to answer with specific, actionable guidance.',
-      'Bias toward revenue, speed, and clarity.'
+      'Bias toward revenue, speed, and clarity.',
     ].join(' ')
 
     const userPrompt =
@@ -39,7 +42,7 @@ ${recentMessages || '(none yet)'}
 Known memory bullets:
 ${memoryBullets || '(none yet)'}`
 
-    // 2) Generate assistant reply
+    // ---- LLM reply
     const ai = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -58,47 +61,79 @@ ${memoryBullets || '(none yet)'}`
     const aiJson = await ai.json()
     const reply: string = aiJson.choices?.[0]?.message?.content ?? 'No reply generated.'
 
-    // 3) Embed BOTH messages
-    const userEmbedding = await embedText(message)
-    const asstEmbedding = await embedText(reply)
+    // ---- Embeddings (both sides)
+    const userEmbedding = await embedText(message)         // 1536
+    const asstEmbedding = await embedText(reply)           // 1536
 
-    // 4) Insert both convo rows with embeddings
-    const { error: cmErr } = await supabaseAdmin.from('conversation_messages').insert([
-      { org_id: orgId, user_id: userId, role: 'user',      message, embedding: userEmbedding },
-      { org_id: orgId, user_id: userId, role: 'assistant', message: reply,  embedding: asstEmbedding },
-    ])
-    if (cmErr) throw cmErr
+    // Store both convo rows
+    {
+      const { error } = await supabaseAdmin.from('conversation_messages').insert([
+        { org_id: orgId, user_id: userId, role: 'user',      message, embedding: userEmbedding },
+        { org_id: orgId, user_id: userId, role: 'assistant', message: reply,  embedding: asstEmbedding },
+      ])
+      if (error) throw error
+    }
 
-    // 5) Create a condensed memory bullet + importance + embedding
-    const memRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: 'system', content: 'Compress the following exchange into ONE actionable bullet for future retrieval.' },
-          { role: 'user', content: `Message:\n${message}\n\nAssistant reply:\n${reply}` }
-        ],
-      }),
-    })
-    const memJson = await memRes.json()
-    const summary: string = memJson.choices?.[0]?.message?.content?.trim() || message
+    // ---- Condensed memory bullet (never-null embedding)
+    let summary = message
+    try {
+      const memRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: [
+            { role: 'system', content: 'Summarize the following exchange into ONE actionable business insight bullet.' },
+            { role: 'user', content: `User: ${message}\nAssistant: ${reply}` },
+          ],
+        }),
+      })
+      if (memRes.ok) {
+        const j = await memRes.json()
+        summary = j.choices?.[0]?.message?.content?.trim() || summary
+      } else {
+        console.warn('[memory] summary OpenAI call failed:', await memRes.text())
+      }
+    } catch (e) {
+      console.warn('[memory] summary generation error:', e)
+    }
+
     const importance = scoreImportance(message + ' ' + reply)
-    const summaryEmbedding = await embedText(summary)
 
-    const { error: miErr } = await supabaseAdmin.from('memory_insights').insert({
-      org_id: orgId,
-      user_id: userId,
-      summary,
-      importance,
-      embedding: summaryEmbedding,
+    // Try summary embedding; if anything fails, fall back to assistant embedding (so it's never NULL)
+    let summaryEmbedding: number[] = asstEmbedding
+    try {
+      const vec = await embedText(summary || reply || message)
+      if (Array.isArray(vec) && vec.length === asstEmbedding.length) summaryEmbedding = vec
+      else console.warn('[memory] summary embed dimension mismatch; using assistant embedding fallback')
+    } catch (e) {
+      console.error('[memory] embed summary failed; using assistant embedding fallback:', e)
+    }
+
+    {
+      const { error } = await supabaseAdmin.from('memory_insights').insert({
+        org_id: orgId,
+        user_id: userId,
+        summary,
+        importance,
+        embedding: summaryEmbedding,
+      })
+      if (error) throw error
+    }
+
+    // Diagnostics (vector lengths) in response for quick confirmation
+    return NextResponse.json({
+      ok: true,
+      reply,
+      diag: {
+        userDim: userEmbedding.length,
+        asstDim: asstEmbedding.length,
+        memDim:  summaryEmbedding.length,
+      }
     })
-    if (miErr) throw miErr
-
-    return NextResponse.json({ ok: true, reply })
   } catch (e: any) {
     console.error('chat route error', e)
     return NextResponse.json({ error: String(e?.message || e) }, { status: 500 })
