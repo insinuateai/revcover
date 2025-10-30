@@ -33,7 +33,7 @@ async function embedText(text: string) {
 async function fetchRecentContext(orgId: string, userId: string, limit = 50) {
   const { data: msgs, error: mErr } = await supabase
     .from('conversation_messages')
-    .select('role,content,created_at')
+    .select('role,message,created_at')
     .eq('org_id', orgId)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
@@ -53,7 +53,7 @@ async function fetchRecentContext(orgId: string, userId: string, limit = 50) {
 
   const recentMessages = (msgs ?? [])
     .reverse()
-    .map((m) => `[${m.role}] ${m.content}`)
+    .map((m: any) => `[${m.role}] ${m.message}`)
     .join('\n')
 
   const memoryBullets = (bullets ?? [])
