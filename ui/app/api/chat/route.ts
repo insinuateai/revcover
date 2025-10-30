@@ -45,29 +45,72 @@ export async function POST(req: NextRequest) {
     })
     if (!llmRes.ok) throw new Error(`OpenAI chat error: ${await llmRes.text()}`)
     const llm = await llmRes.json()
-    const assistantText = llm.choices?.[0]?.message?.content?.trim() || 'OK.'
+    const reply = llm.choices?.[0]?.message?.content?.trim() || 'OK.'
 
     // 4) store assistant reply
     const { error: insertAssistantErr } = await supabaseAdmin
       .from('conversation_messages')
-      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, role: 'assistant', message: assistantText, embedding: null })
+      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, role: 'assistant', message: reply, embedding: null })
     if (insertAssistantErr) throw insertAssistantErr
 
-    // 5) seed a tiny memory insight
-    const summary = summarizeForMemory(message)
-    const { error: memErr } = await supabaseAdmin
-      .from('memory_insights')
-      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, source_message_id: sourceMessageId, summary, importance: 1 })
-    if (memErr) throw memErr
+    // 5) Create a condensed memory bullet + importance + embedding
+    let summary = message
+    try {
+      const memRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: OPENAI_MODEL,
+          messages: [
+            { role: 'system', content: 'Summarize the following exchange into ONE actionable business insight bullet.' },
+            { role: 'user', content: `User: ${message}\nAssistant: ${reply}` }
+          ]
+        })
+      })
+      if (memRes.ok) {
+        const memJson = await memRes.json()
+        summary = memJson.choices?.[0]?.message?.content?.trim() || summary
+      } else {
+        console.warn('OpenAI summary call failed', await memRes.text())
+      }
+    } catch (e) {
+      console.warn('Summary generation failed', e)
+    }
 
-    return NextResponse.json({ ok: true, reply: assistantText })
+    let summaryEmbedding: number[] | null = null
+    try {
+      summaryEmbedding = await embedText(summary)
+    } catch (e) {
+      console.error('Embedding generation failed for summary', e)
+    }
+
+    const importance = scoreImportance(`${message} ${reply}`)
+
+    const { error: miErr } = await supabaseAdmin.from('memory_insights').insert({
+      org_id: resolvedOrgId,
+      user_id: resolvedUserId,
+      source_message_id: sourceMessageId,
+      summary,
+      importance,
+      embedding: summaryEmbedding
+    })
+    if (miErr) throw miErr
+
+    return NextResponse.json({ ok: true, reply })
   } catch (e: any) {
     console.error('chat route error', e)
     return NextResponse.json({ error: e?.message || 'Unknown error' }, { status: 500 })
   }
 }
 
-function summarizeForMemory(input: string) {
-  const t = input.trim().replace(/\s+/g, ' ')
-  return t.length <= 140 ? t : t.slice(0, 137) + '...'
+function scoreImportance(text: string) {
+  const normalized = text.trim()
+  if (!normalized) return 0
+  const wordCount = normalized.split(/\s+/).length
+  if (wordCount > 120) return 3
+  if (wordCount > 40) return 2
+  return 1
 }
