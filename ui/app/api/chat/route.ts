@@ -16,10 +16,10 @@ export async function POST(req: NextRequest) {
     const resolvedUserId = userId || 'anonymous-user'
 
     // 1) store user message + embedding
-    const embedding = await embedText(message)
+    const userEmbedding = await embedText(message)
     const { data: inserted, error: insertErr } = await supabaseAdmin
       .from('conversation_messages')
-      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, role: 'user', message, embedding })
+      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, role: 'user', message, embedding: userEmbedding })
       .select().single()
     if (insertErr) throw insertErr
     const sourceMessageId = inserted?.id
@@ -46,14 +46,15 @@ export async function POST(req: NextRequest) {
     if (!llmRes.ok) throw new Error(`OpenAI chat error: ${await llmRes.text()}`)
     const llm = await llmRes.json()
     const reply = llm.choices?.[0]?.message?.content?.trim() || 'OK.'
+    const asstEmbedding = await embedText(reply)
 
     // 4) store assistant reply
     const { error: insertAssistantErr } = await supabaseAdmin
       .from('conversation_messages')
-      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, role: 'assistant', message: reply, embedding: null })
+      .insert({ org_id: resolvedOrgId, user_id: resolvedUserId, role: 'assistant', message: reply, embedding: asstEmbedding })
     if (insertAssistantErr) throw insertAssistantErr
 
-    // 5) Create a condensed memory bullet + importance + embedding
+    // 5) Create a condensed memory bullet + importance + embedding (never null)
     let summary = message
     try {
       const memRes = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -74,20 +75,22 @@ export async function POST(req: NextRequest) {
         const memJson = await memRes.json()
         summary = memJson.choices?.[0]?.message?.content?.trim() || summary
       } else {
-        console.warn('OpenAI summary call failed', await memRes.text())
+        console.warn('[memory] summary OpenAI call failed:', await memRes.text())
       }
     } catch (e) {
-      console.warn('Summary generation failed', e)
+      console.warn('[memory] summary generation error:', e)
     }
 
+    const importance = scoreImportance(`${message} ${reply}`)
+
+    // Try to embed the summary; if it fails, reuse assistant embedding
     let summaryEmbedding: number[] | null = null
     try {
       summaryEmbedding = await embedText(summary)
     } catch (e) {
-      console.error('Embedding generation failed for summary', e)
+      console.error('[memory] embed summary failed, falling back to assistant embedding:', e)
+      summaryEmbedding = asstEmbedding
     }
-
-    const importance = scoreImportance(`${message} ${reply}`)
 
     const { error: miErr } = await supabaseAdmin.from('memory_insights').insert({
       org_id: resolvedOrgId,
