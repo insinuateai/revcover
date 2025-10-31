@@ -58,6 +58,26 @@ await app.register(cors, { origin: true });
 app.get("/health", async () => ({ ok: true }));
 app.get("/ready", async () => ({ ready: true }));
 
+app.post<{
+  Body: {
+    sliders: {
+      recoveryIntensity: number;
+      escalationSpeed: number;
+      aiAdaptiveness: number;
+    };
+  };
+}>("/ai/strategy-preview", async (req, reply) => {
+  const { sliders } = req.body;
+  const base = 8000;
+  const multiplier = (
+    sliders.recoveryIntensity * 0.4 +
+    sliders.escalationSpeed * 0.2 +
+    sliders.aiAdaptiveness * 0.4
+  ) / 100;
+
+  reply.send({ expected_recovery_usd: base * (1 + multiplier / 2) });
+});
+
 await app.register(summaryRoutes);
 await app.register(buildReceiptsRoute({ repo: supabaseRepo }));
 await app.register(buildRecoveryReportRoute({ repo: supabaseRepo }));
