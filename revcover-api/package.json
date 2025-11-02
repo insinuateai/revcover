@@ -1,0 +1,16 @@
+{
+  "name": "revcover-api",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "@fastify/raw-body": "^5.0.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.4.0",
+    "fastify": "^4.26.2",
+    "stripe": "^14.0.0"
+  }
+}
