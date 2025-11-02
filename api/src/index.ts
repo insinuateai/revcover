@@ -1,11 +1,13 @@
 // api/src/index.ts
-import Fastify from "fastify";
 import cors from "@fastify/cors";
+import fastifyRawBody from "fastify-raw-body";
+import Fastify from "fastify";
 import { ENV } from "./lib/env.js";
+import { supabaseAdmin } from "./lib/supabase.js";
 import { buildReceiptsRoute } from "./routes/receipts.js";
 import { buildRecoveryReportRoute } from "./routes/recoveryReport.js";
 import { summaryRoutes } from "./routes/summary.js";
-import { supabaseAdmin } from "./lib/supabase.js";
+import stripeWebhooks from "./webhooks/stripe.js";
 import type { Repo, ReceiptsFilter } from "./services/repo.js";
 
 // Simple Supabase-backed repo impl (minimal for MVP)
@@ -54,6 +56,7 @@ const supabaseRepo: Repo = {
 
 const app = Fastify({ logger: { level: ENV.LOG_LEVEL } });
 await app.register(cors, { origin: true });
+await app.register(fastifyRawBody, { field: "rawBody", global: false, encoding: false });
 
 app.get("/health", async () => ({ ok: true }));
 app.get("/ready", async () => ({ ready: true }));
@@ -81,6 +84,7 @@ app.post<{
 await app.register(summaryRoutes);
 await app.register(buildReceiptsRoute({ repo: supabaseRepo }));
 await app.register(buildRecoveryReportRoute({ repo: supabaseRepo }));
+await app.register(stripeWebhooks);
 
 app.setNotFoundHandler((_req, reply) => reply.code(404).send({ ok: false, code: "RVC-404" }));
 
